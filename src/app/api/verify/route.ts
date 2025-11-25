@@ -3,16 +3,14 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { email, tradeNationId, discordUsername } = body;
+        const { fullName, country, email } = body;
 
         // Validate input
-        if (!email || !tradeNationId) {
+        if (!email || !fullName) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
         // Send to Discord Webhook
-        // Note: In a real app, use process.env.DISCORD_WEBHOOK_URL
-        // For now, we will just log it or simulate success if no env var is set.
         const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
         if (webhookUrl) {
@@ -25,9 +23,9 @@ export async function POST(request: Request) {
                             title: "New Verification Request",
                             color: 0x06b6d4, // Cyan
                             fields: [
-                                { name: "Email", value: email, inline: true },
-                                { name: "Trade Nation ID", value: tradeNationId, inline: true },
-                                { name: "Discord User", value: discordUsername || "N/A", inline: true },
+                                { name: "Full Name", value: fullName, inline: true },
+                                { name: "Country", value: country || "N/A", inline: true },
+                                { name: "Email", value: email, inline: false }, // Email on new line for readability
                                 { name: "Time", value: new Date().toISOString() },
                             ],
                         },
@@ -35,7 +33,7 @@ export async function POST(request: Request) {
                 }),
             });
         } else {
-            console.log("Mock Webhook Sent:", { email, tradeNationId, discordUsername });
+            console.log("Mock Webhook Sent:", { email, fullName, country });
         }
 
         return NextResponse.json({ success: true });

@@ -18,9 +18,9 @@ export default function VerifyPage() {
 
         const formData = new FormData(e.currentTarget);
         const data = {
+            fullName: formData.get("fullName"),
+            country: formData.get("country"),
             email: formData.get("email"),
-            tradeNationId: formData.get("tradeNationId"),
-            discordUsername: formData.get("discordUsername"),
         };
 
         try {
@@ -88,6 +88,31 @@ export default function VerifyPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-6 bg-card border border-border p-8 rounded-2xl shadow-xl">
                         <div className="space-y-2">
+                            <label htmlFor="fullName" className="text-sm font-medium text-foreground">Full Name (used on Trade Nation)</label>
+                            <input
+                                type="text"
+                                name="fullName"
+                                id="fullName"
+                                required
+                                placeholder="John Doe"
+                                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label htmlFor="country" className="text-sm font-medium text-foreground">Country of Residence</label>
+                            <input
+                                type="text"
+                                name="country"
+                                id="country"
+                                required
+                                placeholder="e.g. Norway, UK"
+                                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                            <p className="text-xs text-muted-foreground">Helps us find your registration faster.</p>
+                        </div>
+
+                        <div className="space-y-2">
                             <label htmlFor="email" className="text-sm font-medium text-foreground">Email Address</label>
                             <input
                                 type="email"
@@ -99,29 +124,9 @@ export default function VerifyPage() {
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <label htmlFor="tradeNationId" className="text-sm font-medium text-foreground">Trade Nation ID / Account Number</label>
-                            <input
-                                type="text"
-                                name="tradeNationId"
-                                id="tradeNationId"
-                                required
-                                placeholder="e.g. 12345678"
-                                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                            />
-                            <p className="text-xs text-muted-foreground">Found in your Trade Nation account settings.</p>
-                        </div>
 
-                        <div className="space-y-2">
-                            <label htmlFor="discordUsername" className="text-sm font-medium text-foreground">Discord Username (Optional)</label>
-                            <input
-                                type="text"
-                                name="discordUsername"
-                                id="discordUsername"
-                                placeholder="username#0000"
-                                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                            />
-                        </div>
+
+
 
                         {error && (
                             <div className="p-3 rounded-lg bg-red-500/10 text-red-500 text-sm text-center">
