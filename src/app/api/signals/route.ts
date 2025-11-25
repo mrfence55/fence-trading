@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import db, { initDB } from "@/lib/db";
+
+// Initialize DB on first load (safe to run multiple times)
+initDB();
 
 export async function POST(request: Request) {
     try {
@@ -9,25 +13,37 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Invalid signal format" }, { status: 400 });
         }
 
-        console.log("Received Signal Update:", {
-            symbol: body.symbol,
-            type: body.type,
-            status: body.status,
-            pips: body.pips,
-            tp_level: body.tp_level
-        });
+        console.log("Received Signal Update:", body);
 
-        // TODO: Save this to a database (e.g., Supabase, MongoDB)
-        // For now, we just acknowledge receipt.
-        // In a real app, you would:
-        // 1. Find the signal by symbol/type
-        // 2. Update its status and pips gained
-        // 3. Recalculate aggregate stats
+        const stmt = db.prepare(`
+            INSERT INTO signals (symbol, type, status, pips, tp_level)
+            VALUES (?, ?, ?, ?, ?)
+        `);
 
-        return NextResponse.json({ success: true, message: "Signal received" });
+        const info = stmt.run(
+            body.symbol,
+            body.type,
+            body.status,
+            body.pips || 0,
+            body.tp_level || 0
+        );
+
+        return NextResponse.json({ success: true, id: info.lastInsertRowid });
     } catch (error) {
         console.error("Signal API Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
+
+export async function GET() {
+    try {
+        const stmt = db.prepare('SELECT * FROM signals ORDER BY timestamp DESC');
+        const signals = stmt.all();
+        return NextResponse.json(signals);
+    } catch (error) {
+        console.error("Signal API Error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}
+
 

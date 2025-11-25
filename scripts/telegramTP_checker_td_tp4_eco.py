@@ -34,7 +34,7 @@ MAX_SIGNAL_AGE_DAYS = 5
 WARM_START_SKIP_BACKFILL = True
 
 # Website API Config
-WEBSITE_API_URL = "http://localhost:3000/api/signals" # Update this to fencetrading.com in prod
+WEBSITE_API_URL = "https://fencetrading.no/api/signals" # Updated to production URL
 # =====================================
 
 # Touch buffers (reduce false positives on wicks)
@@ -370,6 +370,8 @@ async def send_to_website(data: dict):
             async with session.post(WEBSITE_API_URL, json=data) as resp:
                 if resp.status != 200:
                     print(f"Website API Error: {resp.status}")
+                else:
+                    print(f"Successfully sent signal to website: {data['symbol']} {data['status']}")
     except Exception as e:
         print(f"Failed to send to website: {e}")
 
