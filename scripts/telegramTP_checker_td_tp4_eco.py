@@ -20,7 +20,7 @@ ANNOUNCE_COOLDOWN_SEC = 20
 API_ID   = 27308955
 API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 
-TARGET_CHAT_IDS = [-1002083880162]        # VIP channel/group to monitor
+TARGET_CHAT_IDS = [-1002083880162, -1220837618]        # VIP channel/group to monitor
 FREE_CHANNEL    = "@FreeFenceTrading"     # public mirror for TP hits
 
 TD_KEY   = "e319e4cc7cec44ad975841ded108a985"
