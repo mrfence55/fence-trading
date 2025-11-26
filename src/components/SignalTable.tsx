@@ -12,11 +12,15 @@ type Signal = {
     pips: number;
     tp_level: number;
     timestamp: string;
+    channel_name?: string;
+    rr_ratio?: number;
+    profit?: number;
 };
 
 export function SignalTable() {
     const [signals, setSignals] = useState<Signal[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeChannel, setActiveChannel] = useState<string>("All");
 
     useEffect(() => {
         async function fetchSignals() {
@@ -34,71 +38,104 @@ export function SignalTable() {
         }
 
         fetchSignals();
-        // Poll every 10 seconds for new data
         const interval = setInterval(fetchSignals, 10000);
         return () => clearInterval(interval);
     }, []);
+
+    // Extract unique channels
+    const channels = ["All", ...Array.from(new Set(signals.map(s => s.channel_name || "Unknown")))];
+
+    // Filter signals
+    const filteredSignals = activeChannel === "All"
+        ? signals
+        : signals.filter(s => (s.channel_name || "Unknown") === activeChannel);
 
     if (loading) {
         return <div className="text-center p-8 text-muted-foreground">Loading performance data...</div>;
     }
 
     return (
-        <div className="w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
-                        <tr>
-                            <th className="px-4 py-3">Time (UTC)</th>
-                            <th className="px-4 py-3">Symbol</th>
-                            <th className="px-4 py-3">Type</th>
-                            <th className="px-4 py-3">Status</th>
-                            <th className="px-4 py-3 text-right">TP Level</th>
-                            <th className="px-4 py-3 text-right">Pips</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {signals.length === 0 ? (
-                            <tr>
-                                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                                    No signals recorded yet.
-                                </td>
-                            </tr>
-                        ) : (
-                            signals.map((signal) => (
-                                <motion.tr
-                                    key={signal.id}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="hover:bg-muted/30 transition-colors"
-                                >
-                                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                                        {new Date(signal.timestamp + "Z").toLocaleString()}
-                                    </td>
-                                    <td className="px-4 py-3 font-bold text-foreground">{signal.symbol}</td>
-                                    <td className={cn(
-                                        "px-4 py-3 font-semibold",
-                                        signal.type.toUpperCase() === "LONG" ? "text-green-500" : "text-red-500"
-                                    )}>
-                                        {signal.type.toUpperCase()}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Badge status={signal.status} />
-                                    </td>
-                                    <td className="px-4 py-3 text-right font-mono">
-                                        {signal.tp_level > 0 ? `TP${signal.tp_level}` : "-"}
-                                    </td>
-                                    <td className={cn(
-                                        "px-4 py-3 text-right font-mono font-bold",
-                                        signal.pips > 0 ? "text-green-500" : "text-red-500"
-                                    )}>
-                                        {signal.pips > 0 ? "+" : ""}{signal.pips}
-                                    </td>
-                                </motion.tr>
-                            ))
+        <div className="space-y-4">
+            {/* Channel Tabs */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+                {channels.map(channel => (
+                    <button
+                        key={channel}
+                        onClick={() => setActiveChannel(channel)}
+                        className={cn(
+                            "px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap",
+                            activeChannel === channel
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
                         )}
-                    </tbody>
-                </table>
+                    >
+                        {channel}
+                    </button>
+                ))}
+            </div>
+
+            <div className="w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                            <tr>
+                                <th className="px-4 py-3">Time (UTC)</th>
+                                <th className="px-4 py-3">Channel</th>
+                                <th className="px-4 py-3">Symbol</th>
+                                <th className="px-4 py-3">Type</th>
+                                <th className="px-4 py-3">Status</th>
+                                <th className="px-4 py-3 text-right">RR</th>
+                                <th className="px-4 py-3 text-right">Profit ($1k Risk)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {filteredSignals.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                                        No signals recorded yet.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredSignals.map((signal) => (
+                                    <motion.tr
+                                        key={signal.id}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="hover:bg-muted/30 transition-colors"
+                                    >
+                                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                                            {new Date(signal.timestamp + "Z").toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                                            {signal.channel_name || "Unknown"}
+                                        </td>
+                                        <td className="px-4 py-3 font-bold text-foreground">{signal.symbol}</td>
+                                        <td className={cn(
+                                            "px-4 py-3 font-semibold",
+                                            signal.type.toUpperCase() === "LONG" ? "text-green-500" : "text-red-500"
+                                        )}>
+                                            {signal.type.toUpperCase()}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Badge status={signal.status} />
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-mono">
+                                            {signal.rr_ratio ? `1:${signal.rr_ratio.toFixed(2)}` : "-"}
+                                        </td>
+                                        <td className={cn(
+                                            "px-4 py-3 text-right font-mono font-bold",
+                                            (signal.profit || 0) > 0 ? "text-green-500" : "text-red-500"
+                                        )}>
+                                            {signal.profit
+                                                ? (signal.profit > 0 ? "+" : "") + "$" + signal.profit.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                                                : "-"}
+                                        </td>
+                                    </motion.tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

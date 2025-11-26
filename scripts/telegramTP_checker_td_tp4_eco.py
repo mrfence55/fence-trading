@@ -165,6 +165,7 @@ CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS signals(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   chat_id INTEGER NOT NULL,
+  chat_title TEXT,
   msg_id INTEGER NOT NULL,
   symbol TEXT NOT NULL,
   side TEXT NOT NULL,
@@ -195,6 +196,10 @@ async def db_init():
             await db.execute("ALTER TABLE signals ADD COLUMN notified_hits INTEGER NOT NULL DEFAULT 0;")
         except sqlite3.OperationalError:
             pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN chat_title TEXT;")
+        except sqlite3.OperationalError:
+            pass
         await db.commit()
 
 async def warm_start_open_signals():
@@ -208,9 +213,9 @@ async def warm_start_open_signals():
 async def insert_signal(rec: Dict[str, Any]):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            """INSERT INTO signals(chat_id,msg_id,symbol,side,entry,sl,tp1,tp2,tp3,tp4,hits,notified_hits,status,close_reason,created_at,anchor_ts,last_check_ts)
-               VALUES(?,?,?,?,?,?,?,?,?,?,?,?, ?, ?, ?, ?, ?)""",
-            (rec["chat_id"], rec["msg_id"], rec["symbol"], rec["side"], rec["entry"], rec["sl"],
+            """INSERT INTO signals(chat_id,chat_title,msg_id,symbol,side,entry,sl,tp1,tp2,tp3,tp4,hits,notified_hits,status,close_reason,created_at,anchor_ts,last_check_ts)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?, ?, ?, ?, ?, ?, ?)""",
+            (rec["chat_id"], rec.get("chat_title"), rec["msg_id"], rec["symbol"], rec["side"], rec["entry"], rec["sl"],
              rec["tp1"], rec.get("tp2"), rec.get("tp3"), rec.get("tp4"),
              0, 0, "open", None, rec["created_at"], rec["anchor_ts"], rec["created_at"])
         )
@@ -444,19 +449,59 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         return True
 
     # announce
+    # announce
+    
+    # Helper for metrics
+    def calc_metrics(exit_price: float):
+        entry = r["entry"]
+        sl = r["sl"]
+        if not sl: return 0, 0, 0, 0
+        
+        risk_pips = abs(entry - sl)
+        reward_pips = abs(entry - exit_price)
+        
+        # Avoid division by zero
+        if risk_pips < EPS: return 0, 0, 0, 0
+        
+        rr = reward_pips / risk_pips
+        profit = 1000 * rr
+        
+        # Adjust pips for display (optional, but keeping raw for now as per plan)
+        # If we want to display "20 pips" instead of "0.0020", we need the multiplier logic.
+        # For now, let's send raw price diffs as "pips" to be consistent with previous logic,
+        # but the frontend might want to format it.
+        # Actually, let's try to normalize pips for the "pips" field if possible, 
+        # but for risk/reward calculations, raw price diff ratio is correct for RR.
+        
+        return risk_pips, reward_pips, rr, profit
+
     if sl_hit:
         text = "❌ SL truffet — avslutter."
         await reply_status(r["chat_id"], r["msg_id"], text)
         ANNOUNCED_LAST_TS[rec_id] = now_s
         
         # Send SL to website
-        pips_lost = abs(r["entry"] - sl) if sl else 0
+        risk, reward, rr, profit = calc_metrics(sl)
+        # For SL, profit is -1000 (approx, since we hit SL)
+        # But let's use the calculated one. If SL hit, reward is distance to SL.
+        # Wait, if SL hit, we LOST. Profit should be negative.
+        # My formula: profit = 1000 * rr. 
+        # If SL hit, we lost 1R. So profit should be -1000.
+        # Let's force it for SL hit to be consistent with the model.
+        final_profit = -1000.0
+        
         await send_to_website({
             "symbol": symbol,
             "type": side.upper(),
             "status": "SL_HIT",
-            "pips": -pips_lost,
-            "tp_level": 0
+            "pips": -risk, # Negative risk distance
+            "tp_level": 0,
+            "channel_id": r["chat_id"],
+            "channel_name": r.get("chat_title", "Unknown"),
+            "risk_pips": risk,
+            "reward_pips": 0,
+            "rr_ratio": -1.0,
+            "profit": final_profit
         })
         return
 
@@ -469,26 +514,22 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         ANNOUNCED_LAST_TS[rec_id]  = now_s
         
         # Send TP Hit to website
-        # Calculate pips based on the TP level hit
         tp_price = tps[new_hits-1] if new_hits > 0 else r["entry"]
-        pips_gained = abs(r["entry"] - tp_price) if tp_price else 0
-        
-        # Adjust for JPY pairs (usually 2 decimals) vs others (4 decimals)
-        # Simple heuristic: if price > 50, it's likely JPY or Index -> multiplier 10 or 100?
-        # Standard pip calculation:
-        # Forex (5 decimals): * 10000
-        # JPY (3 decimals): * 100
-        # Gold (2 decimals): * 10
-        # For simplicity in this MVP, we send raw price difference or a simplified "points" value.
-        # Let's just send the raw difference for now, frontend can format.
+        risk, reward, rr, profit = calc_metrics(tp_price)
         
         await send_to_website({
             "symbol": symbol,
             "type": side.upper(),
             "status": "TP_HIT",
-            "pips": pips_gained, # Raw price difference
+            "pips": reward,
             "tp_level": new_hits,
-            "is_win": True # TP1+ is a win
+            "is_win": True,
+            "channel_id": r["chat_id"],
+            "channel_name": r.get("chat_title", "Unknown"),
+            "risk_pips": risk,
+            "reward_pips": reward,
+            "rr_ratio": rr,
+            "profit": profit
         })
 
     if closed and not sl_hit and new_hits >= 4 and _may_send(new_hits):
@@ -528,8 +569,12 @@ async def on_new_signal(evt: events.NewMessage.Event):
     msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
     anchor = ceil_to_next_minute_utc(msg_ts)
 
+    chat = await evt.get_chat()
+    chat_title = getattr(chat, 'title', 'Unknown Channel')
+
     rec = {
         "chat_id": msg.chat_id,
+        "chat_title": chat_title,
         "msg_id": msg.id,
         **parsed,
         "created_at": msg_ts,

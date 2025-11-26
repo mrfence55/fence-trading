@@ -16,8 +16,8 @@ export async function POST(request: Request) {
         console.log("Received Signal Update:", body);
 
         const stmt = db.prepare(`
-            INSERT INTO signals (symbol, type, status, pips, tp_level)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO signals (symbol, type, status, pips, tp_level, channel_id, channel_name, risk_pips, reward_pips, rr_ratio, profit)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const info = stmt.run(
@@ -25,7 +25,13 @@ export async function POST(request: Request) {
             body.type,
             body.status,
             body.pips || 0,
-            body.tp_level || 0
+            body.tp_level || 0,
+            body.channel_id || null,
+            body.channel_name || "Unknown",
+            body.risk_pips || 0,
+            body.reward_pips || 0,
+            body.rr_ratio || 0,
+            body.profit || 0
         );
 
         return NextResponse.json({ success: true, id: info.lastInsertRowid });
