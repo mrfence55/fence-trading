@@ -117,7 +117,10 @@ export function SignalTable() {
                                             {signal.type.toUpperCase()}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <Badge status={signal.status} />
+                                            <div className="flex flex-col gap-1">
+                                                <Badge status={signal.status} />
+                                                <TPIndicators level={signal.tp_level} />
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3 text-right font-mono">
                                             {signal.rr_ratio ? `1:${signal.rr_ratio.toFixed(2)}` : "-"}
@@ -148,8 +151,25 @@ function Badge({ status }: { status: string }) {
     if (status === "CLOSED") color = "bg-blue-500/10 text-blue-500";
 
     return (
-        <span className={cn("px-2 py-1 rounded-full text-xs font-bold", color)}>
+        <span className={cn("px-2 py-1 rounded-full text-xs font-bold w-fit", color)}>
             {status.replace("_", " ")}
         </span>
+    );
+}
+
+function TPIndicators({ level }: { level: number }) {
+    return (
+        <div className="flex gap-1">
+            {[1, 2, 3, 4].map((tp) => (
+                <div
+                    key={tp}
+                    className={cn(
+                        "h-1.5 w-4 rounded-full transition-colors",
+                        level >= tp ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-muted-foreground/20"
+                    )}
+                    title={`TP${tp}`}
+                />
+            ))}
+        </div>
     );
 }
