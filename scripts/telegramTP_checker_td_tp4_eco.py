@@ -96,6 +96,17 @@ SIG_RX_SYMBOL_BUYSELL = re.compile(
     r'(?:.*?(?:tp4|tp\s*4|take\s*profit\s*4)[:=\s]*?(?P<tp4>[-+]?\d*[\,\.]?\d+))?',
     re.IGNORECASE | re.DOTALL
 )
+SIG_RX_SIMPLE = re.compile(
+    r'(?P<side_word>BUY|SELL)\s+'
+    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
+    r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
+    r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
+    r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
+    r'(?:.*?(?:tp3|tp\s*3|take\s*profit\s*3)[:=\s]*?(?P<tp3>[-+]?\d*[\,\.]?\d+))?'
+    r'(?:.*?(?:tp4|tp\s*4|take\s*profit\s*4)[:=\s]*?(?P<tp4>[-+]?\d*[\,\.]?\d+))?'
+    r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)',
+    re.IGNORECASE | re.DOTALL
+)
 
 def _sanitize_levels(side: str, entry: float, sl: float, tps_in: List[Optional[float]]) -> Tuple[Optional[float], List[float], str]:
     note = ""
@@ -133,8 +144,12 @@ def parse_signal_text(text: str) -> Optional[Dict[str, Any]]:
             d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
         else:
             m = SIG_RX_SYMBOL_BUYSELL.search(cleaned)
-            if not m: return None
-            d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
+            if m:
+                d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
+            else:
+                m = SIG_RX_SIMPLE.search(cleaned)
+                if not m: return None
+                d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
 
     if not sym.strip(): return None
     try:
