@@ -20,7 +20,13 @@ ANNOUNCE_COOLDOWN_SEC = 20
 API_ID   = 27308955
 API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 
-TARGET_CHAT_IDS = [-1002083880162, -1220837618]        # VIP channel/group to monitor
+TARGET_CHAT_IDS = [
+    -1002154812244,  # The Gold Complex (Aurora)
+    -1001220837618,  # TFXC PREMIUM (Odin)
+    -1001239815745,  # Fredtrading - VIP - Main channel
+    -1002208969496,  # Fredtrading - VIP - Crypto community
+    -1001979286278   # Fredtrading - Live trading / indices
+]
 FREE_CHANNEL    = "@FreeFenceTrading"     # public mirror for TP hits
 
 TD_KEY   = "e319e4cc7cec44ad975841ded108a985"
