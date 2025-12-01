@@ -13,7 +13,7 @@ module.exports = {
         {
             name: 'fence-bot',
             script: 'scripts/telegramTP_checker_td_tp4_eco.py',
-            interpreter: 'python3', // Ensure python3 is used
+            interpreter: process.platform === 'win32' ? 'python' : 'python3', // 'python' on Windows, 'python3' on Mac/Linux
             cwd: './',
             restart_delay: 5000, // Wait 5s before restarting if it crashes
             env: {
