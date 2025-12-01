@@ -381,7 +381,10 @@ sess_str = load_session_string()
 client = TelegramClient(StringSession(sess_str) if sess_str else StringSession(), API_ID, API_HASH)
 
 async def reply_status(chat_id: int, msg_id: int, text: str):
-    await client.send_message(entity=chat_id, message=text, reply_to=msg_id)
+    try:
+        await client.send_message(entity=chat_id, message=text, reply_to=msg_id)
+    except Exception as e:
+        print(f"Failed to reply to status (likely no admin rights): {e}")
 
 async def send_free(text: str):
     try:
