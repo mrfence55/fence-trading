@@ -6,7 +6,8 @@ module.exports = {
             cwd: './', // Run from the root directory
             env: {
                 NODE_ENV: 'production',
-                PORT: 3000
+                PORT: 3000,
+                HOSTNAME: '0.0.0.0'
             }
         },
         {
