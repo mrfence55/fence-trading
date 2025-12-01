@@ -283,7 +283,7 @@ async def td_time_series_1m(symbol: str, since_ms: int) -> List[List]:
             j = await r.json()
     if isinstance(j, dict) and j.get("status") == "error":
         msg = j.get("message", "")
-        print("TD ERROR:", msg)
+        print(f"TD ERROR for {sym} at {start_iso}: {msg}")
         if "run out of api credits" in msg.lower():
             raise RuntimeError("TD_OUT_OF_CREDITS")
         return []
@@ -384,7 +384,8 @@ async def reply_status(chat_id: int, msg_id: int, text: str):
     try:
         await client.send_message(entity=chat_id, message=text, reply_to=msg_id)
     except Exception as e:
-        print(f"Failed to reply to status (likely no admin rights): {e}")
+        # Just log warning, don't crash or spam too much
+        print(f"Warning: Failed to reply to status in chat {chat_id} (likely no admin rights). Error: {e}")
 
 async def send_free(text: str):
     try:
@@ -398,7 +399,8 @@ async def send_to_website(data: dict):
         async with aiohttp.ClientSession() as session:
             async with session.post(WEBSITE_API_URL, json=data) as resp:
                 if resp.status != 200:
-                    print(f"Website API Error: {resp.status}")
+                    text = await resp.text()
+                    print(f"Website API Error: {resp.status} - {text}")
                 else:
                     print(f"Successfully sent signal to website: {data['symbol']} {data['status']}")
     except Exception as e:
