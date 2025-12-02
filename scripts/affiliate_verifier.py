@@ -55,7 +55,7 @@ async def init_db():
         await db.commit()
 
 async def get_pending_verifications_from_discord():
-    """Fetches pending verification requests (ID -> Email) from Discord channel."""
+    """Fetches pending verification requests (Name -> Email) from Discord channel."""
     mapping = {}
     
     if not DISCORD_BOT_TOKEN or not DISCORD_VERIFY_CHANNEL_ID:
@@ -100,10 +100,18 @@ async def get_pending_verifications_from_discord():
                             elif field.name == "Trade Nation ID":
                                 tn_id = field.value
                         
-                        if email and tn_id:
-                            # Normalize ID
-                            tn_id = tn_id.strip()
-                            mapping[tn_id] = email
+                        if email:
+                            # Use Full Name if available, otherwise try ID (fallback)
+                            key = None
+                            for field in embed.fields:
+                                if field.name == "Full Name":
+                                    key = field.value
+                            
+                            if not key and tn_id:
+                                key = tn_id
+                                
+                            if key:
+                                mapping[key.strip().lower()] = email # Normalize to lowercase for matching
         
         await client.close()
         
@@ -236,12 +244,52 @@ def send_welcome_email(to_email, name, telegram_link):
         logger.error(f"Error sending email to {to_email}: {e}")
         return False
 
+async def send_discord_log(client, message):
+    """Sends a log message to the Discord channel."""
+    try:
+        channel = client.get_channel(DISCORD_VERIFY_CHANNEL_ID)
+        if channel:
+            await channel.send(message)
+    except Exception as e:
+        logger.error(f"Failed to send Discord log: {e}")
+
 async def main():
     await init_db()
     
     # 1. Fetch Pending Emails from Discord
     logger.info("Fetching pending verifications from Discord...")
-    pending_emails = await get_pending_verifications_from_discord()
+    
+    # We need the Discord client for logging later, so let's keep it alive or reconnect
+    intents = discord.Intents.default()
+    intents.message_content = True
+    discord_client = discord.Client(intents=intents)
+    
+    pending_emails = {}
+    
+    try:
+        await discord_client.login(DISCORD_BOT_TOKEN)
+        asyncio.create_task(discord_client.connect())
+        await asyncio.sleep(5) # Wait for connection
+        
+        channel = discord_client.get_channel(DISCORD_VERIFY_CHANNEL_ID)
+        if channel:
+             async for message in channel.history(limit=100):
+                if message.embeds:
+                    for embed in message.embeds:
+                        email = None
+                        name = None
+                        for field in embed.fields:
+                            if field.name == "Email":
+                                email = field.value
+                            elif field.name == "Full Name":
+                                name = field.value
+                        
+                        if email and name:
+                            pending_emails[name.strip().lower()] = email
+        
+    except Exception as e:
+        logger.error(f"Error initializing Discord: {e}")
+
     logger.info(f"Found {len(pending_emails)} pending requests from Discord.")
 
     # 2. Start Telegram Client
@@ -261,9 +309,9 @@ async def main():
             exists = await cursor.fetchone()
             
             if not exists:
-                # Check if we have an email for this ID
-                # Try exact match or partial match if ID formats vary
-                email = pending_emails.get(user_id)
+                # Check if we have an email for this Name
+                # Try exact match on Name
+                email = pending_emails.get(reg['name'].strip().lower())
                 
                 if email:
                     logger.info(f"Processing new verified user: {reg['name']} ({user_id}) -> {email}")
@@ -280,12 +328,16 @@ async def main():
                             )
                             await db.commit()
                             logger.info(f"Verified and saved {user_id}")
+                            
+                            # Log to Discord
+                            await send_discord_log(discord_client, f"✅ **Verified User:** {reg['name']}\n📧 Email sent to: {email}\n🌍 Country: {reg['country']}")
                 else:
                     logger.debug(f"User {user_id} found on TN but no matching Discord request yet.")
             else:
                 logger.debug(f"User {user_id} already verified.")
 
     await client.disconnect()
+    await discord_client.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
