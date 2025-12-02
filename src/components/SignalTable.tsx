@@ -15,6 +15,12 @@ type Signal = {
     channel_name?: string;
     rr_ratio?: number;
     profit?: number;
+    open_time?: string;
+};
+
+const CHANNEL_MAP: Record<string, string> = {
+    "The Gold Complex": "Aurora",
+    "TFXC PREMIUM": "Odin"
 };
 
 export function SignalTable() {
@@ -43,12 +49,19 @@ export function SignalTable() {
     }, []);
 
     // Extract unique channels
-    const channels = ["All", ...Array.from(new Set(signals.map(s => s.channel_name || "Unknown")))];
+    const channels = ["All", ...Array.from(new Set(signals.map(s => {
+        const name = s.channel_name || "Unknown";
+        return CHANNEL_MAP[name] || name;
+    })))];
 
     // Filter signals
     const filteredSignals = activeChannel === "All"
         ? signals
-        : signals.filter(s => (s.channel_name || "Unknown") === activeChannel);
+        : signals.filter(s => {
+            const name = s.channel_name || "Unknown";
+            const mappedName = CHANNEL_MAP[name] || name;
+            return mappedName === activeChannel;
+        });
 
     if (loading) {
         return <div className="text-center p-8 text-muted-foreground">Loading performance data...</div>;
@@ -79,7 +92,8 @@ export function SignalTable() {
                     <table className="w-full text-sm text-left">
                         <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
                             <tr>
-                                <th className="px-4 py-3">Time (UTC)</th>
+                                <th className="px-4 py-3">Open Time</th>
+                                <th className="px-4 py-3">Hit Time</th>
                                 <th className="px-4 py-3">Channel</th>
                                 <th className="px-4 py-3">Symbol</th>
                                 <th className="px-4 py-3">Type</th>
@@ -104,10 +118,13 @@ export function SignalTable() {
                                         className="hover:bg-muted/30 transition-colors"
                                     >
                                         <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                                            {signal.open_time ? new Date(signal.open_time).toLocaleString() : "-"}
+                                        </td>
+                                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                                             {new Date(signal.timestamp + "Z").toLocaleString()}
                                         </td>
                                         <td className="px-4 py-3 text-xs text-muted-foreground">
-                                            {signal.channel_name || "Unknown"}
+                                            {CHANNEL_MAP[signal.channel_name || ""] || signal.channel_name || "Unknown"}
                                         </td>
                                         <td className="px-4 py-3 font-bold text-foreground">{signal.symbol}</td>
                                         <td className={cn(

@@ -527,7 +527,8 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
             "risk_pips": risk,
             "reward_pips": 0,
             "rr_ratio": -1.0,
-            "profit": final_profit
+            "profit": final_profit,
+            "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
         })
         return
 
@@ -555,7 +556,8 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
             "risk_pips": risk,
             "reward_pips": reward,
             "rr_ratio": rr,
-            "profit": profit
+            "profit": profit,
+            "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
         })
 
     if closed and not sl_hit and new_hits >= 4 and _may_send(new_hits):

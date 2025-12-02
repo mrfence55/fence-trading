@@ -14,6 +14,7 @@ export function initDB() {
       pips REAL,
       tp_level INTEGER,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      open_time DATETIME,
       channel_id INTEGER,
       channel_name TEXT,
       risk_pips REAL,
@@ -30,7 +31,8 @@ export function initDB() {
     "risk_pips REAL",
     "reward_pips REAL",
     "rr_ratio REAL",
-    "profit REAL"
+    "profit REAL",
+    "open_time DATETIME"
   ];
 
   columns.forEach(col => {
