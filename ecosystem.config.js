@@ -3,6 +3,7 @@ module.exports = {
         {
             name: 'fence-web',
             script: 'node_modules/next/dist/bin/next',
+            args: 'start',
             cwd: './', // Run from the root directory
             env: {
                 NODE_ENV: 'production',
