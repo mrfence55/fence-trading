@@ -20,7 +20,10 @@ type Signal = {
 
 const CHANNEL_MAP: Record<string, string> = {
     "The Gold Complex": "Aurora",
-    "TFXC PREMIUM": "Odin"
+    "TFXC PREMIUM": "Odin",
+    "Fredtrading - VIP - Main channel": "Fence - Main",
+    "Fredtrading - VIP - Crypto community": "Fence - Crypto",
+    "Fredtrading - Live trading / indices": "Fence Live/indices"
 };
 
 export function SignalTable() {
