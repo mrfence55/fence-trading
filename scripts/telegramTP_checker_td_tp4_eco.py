@@ -222,6 +222,7 @@ async def db_init():
             await db.execute("ALTER TABLE signals ADD COLUMN free_msg_id INTEGER;")
         except sqlite3.OperationalError:
             pass
+        try:
             await db.execute("ALTER TABLE signals ADD COLUMN chat_title TEXT;")
         except sqlite3.OperationalError:
             pass
