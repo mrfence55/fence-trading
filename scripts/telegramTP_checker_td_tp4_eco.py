@@ -245,7 +245,6 @@ CREATE TABLE IF NOT EXISTS signals(
   created_at INTEGER NOT NULL,
   anchor_ts INTEGER NOT NULL,
   last_check_ts INTEGER NOT NULL,
-  last_check_ts INTEGER NOT NULL,
   target_chat_id INTEGER,
   target_msg_id INTEGER
 );
