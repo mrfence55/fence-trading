@@ -12,15 +12,21 @@ import discord
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv('fenceWeb.env')
+# Load environment variables
+# Try loading from the scripts folder if running from root
+load_dotenv(os.path.join(os.path.dirname(__file__), 'fenceWeb.env'))
+load_dotenv('fenceWeb.env') # Fallback to current dir
 
 # Configuration
 TN_USERNAME = os.getenv("TN_USERNAME")
 TN_PASSWORD = os.getenv("TN_PASSWORD")
-TELEGRAM_API_ID = os.getenv("API_ID")
-TELEGRAM_API_HASH = os.getenv("API_HASH")
+
+# Telegram Config (Hardcoded to match working bot)
+TELEGRAM_API_ID = 27308955
+TELEGRAM_API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 TELEGRAM_BOT_TOKEN = os.getenv("BOT_TOKEN") 
-TELEGRAM_CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID") 
+TELEGRAM_CHANNEL_ID = -1001239815745 # Using the main VIP channel ID from the other script as default, or load from env if different
+
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_VERIFY_CHANNEL_ID = int(os.getenv("DISCORD_VERIFY_CHANNEL_ID", "0"))
 EMAIL_HOST = os.getenv("EMAIL_HOST", "send.one.com")
