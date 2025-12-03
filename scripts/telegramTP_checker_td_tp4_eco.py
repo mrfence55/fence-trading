@@ -114,7 +114,7 @@ def _num(s: str) -> float:
 SIG_RX_CLASSIC = re.compile(
     r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
     r'(?P<side>LONG|SHORT)\b.*?'
-    r'(?:entry|entry\s*price|ep|enter|entry\s*at)[:\s]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
+    r'(?:entry|entry\s*price|ep|enter|entry\s*at)[^\d]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
     r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
@@ -125,7 +125,7 @@ SIG_RX_CLASSIC = re.compile(
 SIG_RX_BUYSELL = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
     r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})'
-    r'.*?(?:entry|entry\s*at|entry\s*price|ep|enter)[:\s]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
+    r'.*?(?:entry|entry\s*at|entry\s*price|ep|enter)[^\d]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
     r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
@@ -135,8 +135,8 @@ SIG_RX_BUYSELL = re.compile(
 )
 SIG_RX_SYMBOL_BUYSELL = re.compile(
     r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\b'
-    r'.{0,40}?\b(?P<side_word>BUY|SELL)\s*(?:NOW)?\b'
-    r'.*?(?:entry|entry\s*at|entry\s*price|ep|enter)[:\s]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
+    r'.{0,40}?\b(?P<side_word>BUY|SELL|LONG|SHORT)\s*(?:NOW)?\b'
+    r'.*?(?:entry|entry\s*at|entry\s*price|ep|enter)[^\d]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)'
     r'(?:.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+))'
     r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
