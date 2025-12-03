@@ -417,8 +417,7 @@ async def main():
                             await send_discord_log(discord_client, f"✅ **Verified User:** {reg['name']}\n📧 Email: {email}\n🌍 Country: {reg['country']}{discord_success_msg}")
                 else:
                     logger.debug(f"User {user_id} found on TN but no matching Discord request yet.")
-                else:
-                    logger.debug(f"User {user_id} found on TN but no matching Discord request yet.")
+
             else:
                 logger.debug(f"User {user_id} already verified.")
 
