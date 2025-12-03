@@ -20,14 +20,56 @@ ANNOUNCE_COOLDOWN_SEC = 20
 API_ID   = 27308955
 API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 
-TARGET_CHAT_IDS = [
-    -1002154812244,  # The Gold Complex (Aurora)
-    -1001220837618,  # TFXC PREMIUM (Odin)
-    -1001239815745,  # Fredtrading - VIP - Main channel
-    -1002208969496,  # Fredtrading - VIP - Crypto community
-    -1001979286278   # Fredtrading - Live trading / indices
-]
-FREE_CHANNEL    = "@FreeFenceTrading"     # public mirror for TP hits
+# Source Channels and their Targets
+CHANNELS_CONFIG = {
+    -1002154812244: {"alias": "Aurora (Gold)",   "target_id": -1003369420967, "type": "GOLD"},
+    -1001220837618: {"alias": "Odin",            "target_id": -1003396317717, "type": "FOREX"},
+    -1001239815745: {"alias": "Fence Trading",   "target_id": -1003330700210, "type": "FOREX"},
+    -1002208969496: {"alias": "Fence Crypto",    "target_id": -1003368566412, "type": "CRYPTO"},
+    -1001979286278: {"alias": "Fence Live",      "target_id": -1003437413343, "type": "INDICES"}
+}
+TARGET_CHAT_IDS = list(CHANNELS_CONFIG.keys())
+
+# ================= SMART REWRITER & ASSETS =================
+ASSET_STYLES = {
+    "GOLD":    {"emoji": "🏆", "color": "🟨", "tag": "#XAUUSD #GOLD"},
+    "CRYPTO":  {"emoji": "🚀", "color": "🟦", "tag": "#CRYPTO #BITCOIN"},
+    "FOREX":   {"emoji": "💱", "color": "🟩", "tag": "#FOREX #FX"},
+    "INDICES": {"emoji": "📈", "color": "🟧", "tag": "#INDICES #US30"},
+    "UNKNOWN": {"emoji": "⚡", "color": "⬜", "tag": "#TRADING"}
+}
+
+SMART_PHRASES = {
+    "breakout": ["Price is breaking key structure.", "Momentum is building for a breakout.", "Volatility incoming."],
+    "retest":   ["Waiting for the retest of the zone.", "Classic break and retest setup.", "Patience for the pullback."],
+    "scalp":    ["Quick scalp opportunity.", "In and out quickly.", "High frequency setup."],
+    "swing":    ["Holding this for the bigger move.", "Swing trade setup.", "Targeting higher timeframe levels."],
+    "risk":     ["Manage your risk strictly.", "Don't overleverage.", "Protect your capital."],
+    "news":     ["High impact news ahead.", "Trade with caution due to news.", "Market volatility expected."]
+}
+
+import random
+
+def get_smart_commentary(text):
+    """Analyzes text and returns a professional insight."""
+    text_lower = text.lower()
+    comments = []
+    
+    for key, phrases in SMART_PHRASES.items():
+        if key in text_lower:
+            comments.append(random.choice(phrases))
+            
+    if not comments:
+        # Default professional fillers if no keywords found
+        defaults = [
+            "Market structure looks prime for this move.",
+            "Validating entry criteria now.",
+            "Following the institutional flow.",
+            "Key liquidity levels identified."
+        ]
+        return random.choice(defaults)
+        
+    return " ".join(comments[:2])
 
 TD_KEY   = "e319e4cc7cec44ad975841ded108a985"
 CHECK_EVERY_SECONDS_BASE = 120            # base polling interval
@@ -203,7 +245,9 @@ CREATE TABLE IF NOT EXISTS signals(
   created_at INTEGER NOT NULL,
   anchor_ts INTEGER NOT NULL,
   last_check_ts INTEGER NOT NULL,
-  free_msg_id INTEGER
+  last_check_ts INTEGER NOT NULL,
+  target_chat_id INTEGER,
+  target_msg_id INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_open ON signals(status);
 CREATE INDEX IF NOT EXISTS idx_symbol ON signals(symbol);
@@ -219,7 +263,11 @@ async def db_init():
         except sqlite3.OperationalError:
             pass
         try:
-            await db.execute("ALTER TABLE signals ADD COLUMN free_msg_id INTEGER;")
+            await db.execute("ALTER TABLE signals ADD COLUMN target_chat_id INTEGER;")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN target_msg_id INTEGER;")
         except sqlite3.OperationalError:
             pass
         try:
@@ -396,54 +444,30 @@ def _fmt(n: float) -> str:
     if n is None: return ""
     return f"{n:.5f}".rstrip('0').rstrip('.')
 
-def format_pretty(rec: dict) -> str:
-    """
-    Formats the signal in a pretty, emoji-rich way.
-    Highlights hit TPs based on 'hits' field.
-    """
-    side = rec['side']
-    symbol = rec['symbol']
-    entry = rec['entry']
-    sl = rec['sl']
-    hits = rec.get('hits', 0)
-    status = rec.get('status', 'open')
+def format_signal_smart(alias, asset_type, side, symbol, entry, sl, tps, raw_text):
+    style = ASSET_STYLES.get(asset_type, ASSET_STYLES["UNKNOWN"])
+    emoji = style["emoji"]
+    color = style["color"]
     
-    icon = "📈" if side == "long" else "📉"
-    side_word = "BUY" if side == "long" else "SELL"
+    commentary = get_smart_commentary(raw_text)
     
-    lines = [
-        f"{icon} {symbol} {side_word}",
-        f"✅ Entry: {_fmt(entry)}",
-        f"🔴 SL: {_fmt(sl)}"
-    ]
+    msg = f"{emoji} **{alias} PREMIUM** {emoji}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━━━\n"
+    msg += f"{color} **{symbol}**\n"
+    msg += f"**Action:** {side.upper()} {entry}\n"
+    msg += f"━━━━━━━━━━━━━━━━━━━━\n"
     
-    # TPs
-    for i in range(1, 5):
-        tp_val = rec.get(f'tp{i}')
-        if tp_val is not None:
-            # Mark as hit if current hits >= i
-            mark = "✅" if hits >= i else "🔵"
-            lines.append(f"{mark} TP{i}: {_fmt(tp_val)}")
-            
-    lines.append("")
+    for i, tp in enumerate(tps, 1):
+        msg += f"🎯 **TP{i}:** {tp}\n"
     
-    # Status Footer
-    if status == 'SL_HIT':
-        lines.append("❌ SL HIT")
-    elif status == 'closed':
-        lines.append("🔒 CLOSED")
-    elif hits > 0:
-        lines.append(f"🔥 TP{hits} HIT")
-    else:
-        lines.append("(Risk only 1-5%)")
+    if sl:
+        msg += f"🛑 **SL:** {sl}\n"
         
-    return "\n".join(lines)
-
-async def send_free(text: str):
-    try:
-        await client.send_message(FREE_CHANNEL, text)
-    except Exception as e:
-        print("Forward to free channel failed:", e)
+    msg += f"━━━━━━━━━━━━━━━━━━━━\n"
+    msg += f"🧠 **Analyst Note:**\n_{commentary}_\n"
+    msg += f"{style['tag']}"
+        
+    return msg
 
 async def send_to_website(data: dict):
     """Sends signal update to the website API."""
@@ -671,14 +695,28 @@ async def on_new_signal(evt: events.NewMessage.Event):
         "status": "open"
     }
     
-    # Send to Free Channel (Pretty Format)
-    try:
-        pretty_text = format_pretty(rec)
-        sent_msg = await client.send_message(FREE_CHANNEL, pretty_text)
-        rec["free_msg_id"] = sent_msg.id
-        print(f"Forwarded new signal to Free Channel: {rec['symbol']}")
-    except Exception as e:
-        print(f"Failed to forward to free channel: {e}")
+    # Send to Target Channel (Smart Format)
+    config = CHANNELS_CONFIG.get(msg.chat_id)
+    if config:
+        alias = config["alias"]
+        target_id = config["target_id"]
+        asset_type = config.get("type", "UNKNOWN")
+        
+        tps = []
+        if rec['tp1']: tps.append(rec['tp1'])
+        if rec['tp2']: tps.append(rec['tp2'])
+        if rec['tp3']: tps.append(rec['tp3'])
+        if rec['tp4']: tps.append(rec['tp4'])
+        
+        smart_text = format_signal_smart(alias, asset_type, rec['side'], rec['symbol'], rec['entry'], rec['sl'], tps, msg.message)
+        
+        try:
+            sent_msg = await client.send_message(target_id, smart_text)
+            rec["target_chat_id"] = target_id
+            rec["target_msg_id"] = sent_msg.id
+            print(f"Forwarded new signal to {alias}: {rec['symbol']}")
+        except Exception as e:
+            print(f"Failed to forward to target channel: {e}")
 
     await insert_signal(rec)
     # keep silent on registration to reduce noise
@@ -777,19 +815,25 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
         if updates:
             await update_signal(rec_id, **updates)
             
-            # Update the Free Channel Message (Edit)
-            free_msg_id = r['free_msg_id']
-            if free_msg_id:
-                # Re-construct the record with updates to generate new pretty text
-                updated_rec = dict(r)
-                updated_rec.update(updates)
+            # Update the Target Channel (Reply Thread)
+            target_chat_id = r['target_chat_id']
+            target_msg_id = r['target_msg_id']
+            
+            if target_chat_id and target_msg_id:
+                update_msg = ""
+                if new_hits:
+                    update_msg = f"✅ **TP{new_hits} HIT!** 🚀\n#{symbol}"
+                elif status == "SL_HIT":
+                    update_msg = f"❌ **SL HIT**\n#{symbol}"
+                elif status == "closed":
+                    update_msg = f"🔒 **CLOSED**\n#{symbol}"
                 
-                new_text = format_pretty(updated_rec)
-                try:
-                    await client.edit_message(FREE_CHANNEL, free_msg_id, new_text)
-                    print(f"Edited Free Channel message {free_msg_id}")
-                except Exception as e:
-                    print(f"Failed to edit free channel message: {e}")
+                if update_msg:
+                    try:
+                        await client.send_message(target_chat_id, update_msg, reply_to=target_msg_id)
+                        print(f"Replied to thread in target channel: {update_msg}")
+                    except Exception as e:
+                        print(f"Failed to reply to thread: {e}")
 
 
 # ---------- Loop ----------
