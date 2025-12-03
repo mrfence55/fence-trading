@@ -40,7 +40,7 @@ MAX_SIGNAL_AGE_DAYS = 5
 WARM_START_SKIP_BACKFILL = True
 
 # Website API Config
-WEBSITE_API_URL = "http://localhost:3000/api/signals" # Localhost on VPS
+WEBSITE_API_URL = "http://localhost:3000/api/signals " # Localhost on VPS
 # =====================================
 
 # Touch buffers (reduce false positives on wicks)
@@ -202,7 +202,8 @@ CREATE TABLE IF NOT EXISTS signals(
   close_reason TEXT,
   created_at INTEGER NOT NULL,
   anchor_ts INTEGER NOT NULL,
-  last_check_ts INTEGER NOT NULL
+  last_check_ts INTEGER NOT NULL,
+  free_msg_id INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_open ON signals(status);
 CREATE INDEX IF NOT EXISTS idx_symbol ON signals(symbol);
@@ -218,6 +219,9 @@ async def db_init():
         except sqlite3.OperationalError:
             pass
         try:
+            await db.execute("ALTER TABLE signals ADD COLUMN free_msg_id INTEGER;")
+        except sqlite3.OperationalError:
+            pass
             await db.execute("ALTER TABLE signals ADD COLUMN chat_title TEXT;")
         except sqlite3.OperationalError:
             pass
@@ -386,6 +390,53 @@ async def reply_status(chat_id: int, msg_id: int, text: str):
     except Exception as e:
         # Just log warning, don't crash or spam too much
         print(f"Warning: Failed to reply to status in chat {chat_id} (likely no admin rights). Error: {e}")
+
+def _fmt(n: float) -> str:
+    if n is None: return ""
+    return f"{n:.5f}".rstrip('0').rstrip('.')
+
+def format_pretty(rec: dict) -> str:
+    """
+    Formats the signal in a pretty, emoji-rich way.
+    Highlights hit TPs based on 'hits' field.
+    """
+    side = rec['side']
+    symbol = rec['symbol']
+    entry = rec['entry']
+    sl = rec['sl']
+    hits = rec.get('hits', 0)
+    status = rec.get('status', 'open')
+    
+    icon = "📈" if side == "long" else "📉"
+    side_word = "BUY" if side == "long" else "SELL"
+    
+    lines = [
+        f"{icon} {symbol} {side_word}",
+        f"✅ Entry: {_fmt(entry)}",
+        f"🔴 SL: {_fmt(sl)}"
+    ]
+    
+    # TPs
+    for i in range(1, 5):
+        tp_val = rec.get(f'tp{i}')
+        if tp_val is not None:
+            # Mark as hit if current hits >= i
+            mark = "✅" if hits >= i else "🔵"
+            lines.append(f"{mark} TP{i}: {_fmt(tp_val)}")
+            
+    lines.append("")
+    
+    # Status Footer
+    if status == 'SL_HIT':
+        lines.append("❌ SL HIT")
+    elif status == 'closed':
+        lines.append("🔒 CLOSED")
+    elif hits > 0:
+        lines.append(f"🔥 TP{hits} HIT")
+    else:
+        lines.append("(Risk only 1-5%)")
+        
+    return "\n".join(lines)
 
 async def send_free(text: str):
     try:
@@ -591,6 +642,14 @@ async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[L
 @client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
 async def on_new_signal(evt: events.NewMessage.Event):
     msg: Message = evt.message
+    
+    # Check for Reply (Update to existing signal)
+    if msg.is_reply:
+        reply_header = await msg.get_reply_message()
+        if reply_header:
+            await handle_reply_update(msg, reply_header.id)
+            return
+
     parsed = parse_signal_text(msg.message)
     if not parsed: return
 
@@ -606,10 +665,131 @@ async def on_new_signal(evt: events.NewMessage.Event):
         "msg_id": msg.id,
         **parsed,
         "created_at": msg_ts,
-        "anchor_ts": anchor
+        "anchor_ts": anchor,
+        "hits": 0,
+        "status": "open"
     }
+    
+    # Send to Free Channel (Pretty Format)
+    try:
+        pretty_text = format_pretty(rec)
+        sent_msg = await client.send_message(FREE_CHANNEL, pretty_text)
+        rec["free_msg_id"] = sent_msg.id
+        print(f"Forwarded new signal to Free Channel: {rec['symbol']}")
+    except Exception as e:
+        print(f"Failed to forward to free channel: {e}")
+
     await insert_signal(rec)
     # keep silent on registration to reduce noise
+
+async def handle_reply_update(msg: Message, original_msg_id: int):
+    """
+    Parses a reply message to check for TP/SL hits and updates the signal.
+    """
+    text = msg.message.lower()
+    
+    # 1. Identify the update type
+    new_hits = None
+    status = None
+    close_reason = None
+    
+    if "tp1" in text or "tp 1" in text: new_hits = 1
+    elif "tp2" in text or "tp 2" in text: new_hits = 2
+    elif "tp3" in text or "tp 3" in text: new_hits = 3
+    elif "tp4" in text or "tp 4" in text: new_hits = 4
+    
+    if "sl hit" in text or "stop loss" in text:
+        status = "SL_HIT"
+        close_reason = "SL_hit_via_telegram"
+    elif "close" in text and "now" in text:
+        status = "closed"
+        close_reason = "manual_close_via_telegram"
+        
+    if new_hits is None and status is None:
+        return # Not a relevant update
+
+    # 2. Find the original signal in DB
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM signals WHERE chat_id = ? AND msg_id = ?", (msg.chat_id, original_msg_id))
+        r = await cursor.fetchone()
+        
+        if not r:
+            print(f"Original signal not found for reply: {msg.id} -> {original_msg_id}")
+            return
+
+        # 3. Update logic
+        current_hits = r['hits']
+        rec_id = r['id']
+        symbol = r['symbol']
+        side = r['side']
+        
+        updates = {}
+        
+        # Handle TP Hit
+        if new_hits is not None and new_hits > current_hits:
+            updates['hits'] = new_hits
+            updates['last_check_ts'] = int(time.time())
+            
+            # Send to Website
+            # We don't have exact price from text usually, so we estimate or use TP level
+            # For simplicity and speed, we just mark the TP level hit
+            await send_to_website({
+                "symbol": symbol,
+                "type": side.upper(),
+                "status": "TP_HIT",
+                "pips": 0, # We don't calculate pips for text updates yet
+                "tp_level": new_hits,
+                "is_win": True,
+                "channel_id": r["chat_id"],
+                "channel_name": r["chat_title"] or "Unknown",
+                "risk_pips": 0,
+                "reward_pips": 0,
+                "rr_ratio": 0,
+                "profit": 0,
+                "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
+            })
+            print(f"Telegram Update: {symbol} TP{new_hits} Hit!")
+
+        # Handle SL/Close
+        if status:
+            updates['status'] = "closed" # DB status is simplified
+            updates['close_reason'] = close_reason
+            updates['last_check_ts'] = int(time.time())
+            
+            await send_to_website({
+                "symbol": symbol,
+                "type": side.upper(),
+                "status": status, # SL_HIT or closed
+                "pips": 0,
+                "tp_level": current_hits,
+                "channel_id": r["chat_id"],
+                "channel_name": r["chat_title"] or "Unknown",
+                "risk_pips": 0,
+                "reward_pips": 0,
+                "rr_ratio": 0,
+                "profit": -1000 if status == "SL_HIT" else 0,
+                "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
+            })
+            print(f"Telegram Update: {symbol} {status}!")
+
+        if updates:
+            await update_signal(rec_id, **updates)
+            
+            # Update the Free Channel Message (Edit)
+            free_msg_id = r['free_msg_id']
+            if free_msg_id:
+                # Re-construct the record with updates to generate new pretty text
+                updated_rec = dict(r)
+                updated_rec.update(updates)
+                
+                new_text = format_pretty(updated_rec)
+                try:
+                    await client.edit_message(FREE_CHANNEL, free_msg_id, new_text)
+                    print(f"Edited Free Channel message {free_msg_id}")
+                except Exception as e:
+                    print(f"Failed to edit free channel message: {e}")
+
 
 # ---------- Loop ----------
 async def checker_loop():
