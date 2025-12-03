@@ -362,64 +362,64 @@ async def main():
         
         async with aiosqlite.connect(DB_PATH) as db:
             for reg in registrations:
-            user_id = reg['user_id']
-            
-            # Check if already processed
-            cursor = await db.execute("SELECT 1 FROM affiliates WHERE user_id = ?", (user_id,))
-            exists = await cursor.fetchone()
-            
-            if not exists:
-                # Check if we have a request for this Name
-                req = pending_requests.get(reg['name'].strip().lower())
+                user_id = reg['user_id']
                 
-                if req:
-                    email = req['email']
-                    discord_user_id = req['discord_user_id']
+                # Check if already processed
+                cursor = await db.execute("SELECT 1 FROM affiliates WHERE user_id = ?", (user_id,))
+                exists = await cursor.fetchone()
+                
+                if not exists:
+                    # Check if we have a request for this Name
+                    req = pending_requests.get(reg['name'].strip().lower())
                     
-                    logger.info(f"Processing new verified user: {reg['name']} ({user_id}) -> {email}")
-                    
-                    # Generate Link
-                    link = await generate_telegram_link(client)
-                    
-                    if link:
-                        # 1. Send Email
-                        email_sent = send_welcome_email(email, reg['name'], link)
+                    if req:
+                        email = req['email']
+                        discord_user_id = req['discord_user_id']
                         
-                        # 2. Handle Discord (Role + DM)
-                        discord_success_msg = ""
-                        if discord_user_id:
-                            try:
-                                guild = discord_client.get_channel(DISCORD_VERIFY_CHANNEL_ID).guild
-                                member = await guild.fetch_member(discord_user_id)
-                                
-                                # Add Role
-                                role = discord.utils.get(guild.roles, name=DISCORD_VIP_ROLE_NAME)
-                                if role:
-                                    await member.add_roles(role)
-                                    discord_success_msg += " | Role Added"
-                                else:
-                                    logger.warning(f"Role '{DISCORD_VIP_ROLE_NAME}' not found in guild.")
-
-                                # Send DM
-                                await member.send(f"🎉 **You are verified!**\n\nHere is your VIP Telegram Link: {link}\n\nWelcome to the team!")
-                                discord_success_msg += " | DM Sent"
-                            except Exception as e:
-                                logger.error(f"Discord Action Failed: {e}")
-                                discord_success_msg += f" | Discord Error: {e}"
-
-                        if email_sent:
-                            # Save to DB
-                            await db.execute(
-                                "INSERT INTO affiliates (user_id, name, country, email, registration_date) VALUES (?, ?, ?, ?, ?)",
-                                (user_id, reg['name'], reg['country'], email, reg['date'])
-                            )
-                            await db.commit()
-                            logger.info(f"Verified and saved {user_id}")
+                        logger.info(f"Processing new verified user: {reg['name']} ({user_id}) -> {email}")
+                        
+                        # Generate Link
+                        link = await generate_telegram_link(client)
+                        
+                        if link:
+                            # 1. Send Email
+                            email_sent = send_welcome_email(email, reg['name'], link)
                             
-                            # Log to Discord Channel
-                            await send_discord_log(discord_client, f"✅ **Verified User:** {reg['name']}\n📧 Email: {email}\n🌍 Country: {reg['country']}{discord_success_msg}")
-                else:
-                    logger.debug(f"User {user_id} found on TN but no matching Discord request yet.")
+                            # 2. Handle Discord (Role + DM)
+                            discord_success_msg = ""
+                            if discord_user_id:
+                                try:
+                                    guild = discord_client.get_channel(DISCORD_VERIFY_CHANNEL_ID).guild
+                                    member = await guild.fetch_member(discord_user_id)
+                                    
+                                    # Add Role
+                                    role = discord.utils.get(guild.roles, name=DISCORD_VIP_ROLE_NAME)
+                                    if role:
+                                        await member.add_roles(role)
+                                        discord_success_msg += " | Role Added"
+                                    else:
+                                        logger.warning(f"Role '{DISCORD_VIP_ROLE_NAME}' not found in guild.")
+
+                                    # Send DM
+                                    await member.send(f"🎉 **You are verified!**\n\nHere is your VIP Telegram Link: {link}\n\nWelcome to the team!")
+                                    discord_success_msg += " | DM Sent"
+                                except Exception as e:
+                                    logger.error(f"Discord Action Failed: {e}")
+                                    discord_success_msg += f" | Discord Error: {e}"
+
+                            if email_sent:
+                                # Save to DB
+                                await db.execute(
+                                    "INSERT INTO affiliates (user_id, name, country, email, registration_date) VALUES (?, ?, ?, ?, ?)",
+                                    (user_id, reg['name'], reg['country'], email, reg['date'])
+                                )
+                                await db.commit()
+                                logger.info(f"Verified and saved {user_id}")
+                                
+                                # Log to Discord Channel
+                                await send_discord_log(discord_client, f"✅ **Verified User:** {reg['name']}\n📧 Email: {email}\n🌍 Country: {reg['country']}{discord_success_msg}")
+                    else:
+                        logger.debug(f"User {user_id} found on TN but no matching Discord request yet.")
 
                 else:
                     logger.debug(f"User {user_id} already verified.")
