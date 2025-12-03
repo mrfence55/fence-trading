@@ -166,7 +166,7 @@ async def get_new_registrations():
         
         try:
             logger.info("Logging into Trade Nation...")
-            await page.goto("https://go.tradenation.com/login")
+            await page.goto("https://go.tradenation.com/login", timeout=60000)
             await page.fill("input[name='username']", TN_USERNAME)
             await page.fill("input[name='password']", TN_PASSWORD)
             await page.click("button[type='submit']")
@@ -184,7 +184,7 @@ async def get_new_registrations():
                 await page.click("text=Registrations Report")
                 
                 # Wait for the "Run Report" button to be visible to confirm we are there
-                await page.wait_for_selector("button:has-text('Run Report')", timeout=30000)
+                await page.wait_for_selector("button:has-text('Run Report')", timeout=60000)
                 
                 # Click "Run Report" to ensure data loads (defaults usually load, but good to be safe)
                 await page.click("button:has-text('Run Report')")
@@ -195,7 +195,7 @@ async def get_new_registrations():
 
             # Wait for table to load
             logger.info("Waiting for report data...")
-            await page.wait_for_selector("table", timeout=30000)
+            await page.wait_for_selector("table", timeout=60000)
             
             # Take a debug screenshot
             await page.screenshot(path="debug_report_page.png")
@@ -353,12 +353,15 @@ async def main():
     client = TelegramClient('affiliate_bot_session', TELEGRAM_API_ID, TELEGRAM_API_HASH)
     await client.start(bot_token=TELEGRAM_BOT_TOKEN)
     
-    # 3. Get New Registrations from Trade Nation
-    registrations = await get_new_registrations()
-    logger.info(f"Found {len(registrations)} registrations on Trade Nation.")
-    
-    async with aiosqlite.connect(DB_PATH) as db:
-        for reg in registrations:
+    if not pending_requests:
+        logger.info("No pending verification requests found. Skipping Trade Nation check.")
+    else:
+        # 3. Get New Registrations from Trade Nation (Only if we have requests)
+        registrations = await get_new_registrations()
+        logger.info(f"Found {len(registrations)} registrations on Trade Nation.")
+        
+        async with aiosqlite.connect(DB_PATH) as db:
+            for reg in registrations:
             user_id = reg['user_id']
             
             # Check if already processed
@@ -418,8 +421,8 @@ async def main():
                 else:
                     logger.debug(f"User {user_id} found on TN but no matching Discord request yet.")
 
-            else:
-                logger.debug(f"User {user_id} already verified.")
+                else:
+                    logger.debug(f"User {user_id} already verified.")
 
     await client.disconnect()
     await discord_client.close()
