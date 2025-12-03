@@ -18,21 +18,22 @@ load_dotenv(os.path.join(os.path.dirname(__file__), 'fenceWeb.env'))
 load_dotenv('fenceWeb.env') # Fallback to current dir
 
 # Configuration
-TN_USERNAME = os.getenv("TN_USERNAME")
-TN_PASSWORD = os.getenv("TN_PASSWORD")
+TN_USERNAME = "mr.fence"
+TN_PASSWORD = "Spetalen.123"
 
 # Telegram Config (Hardcoded to match working bot)
 TELEGRAM_API_ID = 27308955
 TELEGRAM_API_HASH = "12c8d6da1b61b738ba1d28b892452783"
-TELEGRAM_BOT_TOKEN = os.getenv("BOT_TOKEN") 
-TELEGRAM_CHANNEL_ID = -1001239815745 # Using the main VIP channel ID from the other script as default, or load from env if different
+TELEGRAM_BOT_TOKEN = "8247162006:AAHPreUcvvHOB9YwoS86tXUAC3U2Rrf8WcI"
+TELEGRAM_CHANNEL_ID = -1002083880162
 
-DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-DISCORD_VERIFY_CHANNEL_ID = int(os.getenv("DISCORD_VERIFY_CHANNEL_ID", "0"))
-EMAIL_HOST = os.getenv("EMAIL_HOST", "send.one.com")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+DISCORD_BOT_TOKEN = "MTQ0MjU5MjExNTkyOTUxNDA0NA.GPdG-W.7Yy1KK6LRlhSmBwBuF8OQ5ClBsy36wgBARnAQg"
+DISCORD_VERIFY_CHANNEL_ID = 1442460270285820036
+
+EMAIL_HOST = "smtp-mail.outlook.com"
+EMAIL_PORT = 587
+EMAIL_USER = "fencetrading@hotmail.com"
+EMAIL_PASSWORD = "Spetalen.123"
 DB_PATH = "affiliates.db"
 
 # Logging setup
