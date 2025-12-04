@@ -310,14 +310,15 @@ async def main():
     logger.info("Starting Telegram Client...")
     await telegram_client.start(bot_token=TELEGRAM_BOT_TOKEN)
 
-    logger.info("Bot is running. Starting verification loop (every 5 mins)...")
+    logger.info("Bot is running. Listening for requests...")
+
+    last_tn_check = 0
+    TN_CHECK_INTERVAL = 1800 # 30 minutes
 
     try:
         while True:
             try:
-                logger.info("--- Starting Verification Cycle ---")
-                
-                # 1. Fetch Pending Emails from Discord
+                # 1. Fetch Pending Emails from Discord (Fast Check)
                 pending_requests = {}
                 channel = discord_client.get_channel(DISCORD_VERIFY_CHANNEL_ID)
                 
@@ -354,81 +355,88 @@ async def main():
                                     }
                             except: pass
                 
+                if not pending_requests:
+                    # No requests, just wait a bit and check Discord again
+                    await asyncio.sleep(60)
+                    continue
+
                 logger.info(f"Found {len(pending_requests)} pending requests.")
 
-                if not pending_requests:
-                    logger.info("No pending requests. Sleeping...")
-                else:
-                    # 2. Get New Registrations
-                    registrations = await get_new_registrations()
-                    logger.info(f"Found {len(registrations)} registrations on Trade Nation.")
-                    
-                    async with aiosqlite.connect(DB_PATH) as db:
-                        for reg in registrations:
-                            user_id = reg['user_id']
-                            
-                            # Check if already processed
-                            cursor = await db.execute("SELECT 1 FROM affiliates WHERE user_id = ?", (user_id,))
-                            exists = await cursor.fetchone()
-                            
-                            if not exists:
-                                # Check if we have a request for this Name
-                                req = pending_requests.get(reg['name'].strip().lower())
-                                
-                                if req:
-                                    email = req['email']
-                                    discord_user_id = req['discord_user_id']
-                                    
-                                    logger.info(f"Processing new verified user: {reg['name']} ({user_id}) -> {email}")
-                                    
-                                    # Generate Link
-                                    link = await generate_telegram_link(telegram_client)
-                                    
-                                    if link:
-                                        # 1. Send Email
-                                        email_sent = send_welcome_email(email, reg['name'], link)
-                                        
-                                        # 2. Handle Discord (Role + DM)
-                                        discord_success_msg = ""
-                                        if discord_user_id:
-                                            try:
-                                                guild = discord_client.get_channel(DISCORD_VERIFY_CHANNEL_ID).guild
-                                                member = await guild.fetch_member(discord_user_id)
-                                                
-                                                # Add Role
-                                                role = discord.utils.get(guild.roles, name=DISCORD_VIP_ROLE_NAME)
-                                                if role:
-                                                    await member.add_roles(role)
-                                                    discord_success_msg += " | Role Added"
-                                                
-                                                # Send DM
-                                                await member.send(f"🎉 **You are verified!**\n\nHere is your VIP Telegram Link: {link}\n\nWelcome to the team!")
-                                                discord_success_msg += " | DM Sent"
-                                            except Exception as e:
-                                                logger.error(f"Discord Action Failed: {e}")
-                                                discord_success_msg += f" | Discord Error: {e}"
+                # 2. Check Trade Nation (Slow Check - Every 30 mins)
+                now = asyncio.get_event_loop().time()
+                if now - last_tn_check < TN_CHECK_INTERVAL:
+                    # Not time yet
+                    await asyncio.sleep(60)
+                    continue
+                
+                last_tn_check = now
+                logger.info("--- Starting Trade Nation Check (30 min interval) ---")
 
-                                        if email_sent:
-                                            # Save to DB
-                                            await db.execute(
-                                                "INSERT INTO affiliates (user_id, name, country, email, registration_date) VALUES (?, ?, ?, ?, ?)",
-                                                (user_id, reg['name'], reg['country'], email, reg['date'])
-                                            )
-                                            await db.commit()
-                                            logger.info(f"Verified and saved {user_id}")
+                registrations = await get_new_registrations()
+                logger.info(f"Found {len(registrations)} registrations on Trade Nation.")
+                
+                async with aiosqlite.connect(DB_PATH) as db:
+                    for reg in registrations:
+                        user_id = reg['user_id']
+                        
+                        # Check if already processed
+                        cursor = await db.execute("SELECT 1 FROM affiliates WHERE user_id = ?", (user_id,))
+                        exists = await cursor.fetchone()
+                        
+                        if not exists:
+                            # Check if we have a request for this Name
+                            req = pending_requests.get(reg['name'].strip().lower())
+                            
+                            if req:
+                                email = req['email']
+                                discord_user_id = req['discord_user_id']
+                                
+                                logger.info(f"Processing new verified user: {reg['name']} ({user_id}) -> {email}")
+                                
+                                # Generate Link
+                                link = await generate_telegram_link(telegram_client)
+                                
+                                if link:
+                                    # 1. Send Email
+                                    email_sent = send_welcome_email(email, reg['name'], link)
+                                    
+                                    # 2. Handle Discord (Role + DM)
+                                    discord_success_msg = ""
+                                    if discord_user_id:
+                                        try:
+                                            guild = discord_client.get_channel(DISCORD_VERIFY_CHANNEL_ID).guild
+                                            member = await guild.fetch_member(discord_user_id)
                                             
-                                            # Log to Discord Channel
-                                            await send_discord_log(discord_client, f"✅ **Verified User:** {reg['name']}\n📧 Email: {email}\n🌍 Country: {reg['country']}{discord_success_msg}")
-                                else:
-                                    logger.debug(f"User {user_id} found on TN but no matching Discord request yet.")
-                            else:
-                                logger.debug(f"User {user_id} already verified.")
+                                            # Add Role
+                                            role = discord.utils.get(guild.roles, name=DISCORD_VIP_ROLE_NAME)
+                                            if role:
+                                                await member.add_roles(role)
+                                                discord_success_msg += " | Role Added"
+                                            
+                                            # Send DM
+                                            await member.send(f"🎉 **You are verified!**\n\nHere is your VIP Telegram Link: {link}\n\nWelcome to the team!")
+                                            discord_success_msg += " | DM Sent"
+                                        except Exception as e:
+                                            logger.error(f"Discord Action Failed: {e}")
+                                            discord_success_msg += f" | Discord Error: {e}"
+
+                                    if email_sent:
+                                        # Save to DB
+                                        await db.execute(
+                                            "INSERT INTO affiliates (user_id, name, country, email, registration_date) VALUES (?, ?, ?, ?, ?)",
+                                            (user_id, reg['name'], reg['country'], email, reg['date'])
+                                        )
+                                        await db.commit()
+                                        logger.info(f"Verified and saved {user_id}")
+                                        
+                                        # Log to Discord Channel
+                                        await send_discord_log(discord_client, f"✅ **Verified User:** {reg['name']}\n📧 Email: {email}\n🌍 Country: {reg['country']}{discord_success_msg}")
+                        else:
+                            logger.debug(f"User {user_id} already verified.")
 
             except Exception as e:
                 logger.error(f"Error in verification cycle: {e}")
-            
-            # Sleep for 5 minutes before next check
-            await asyncio.sleep(300)
+                await asyncio.sleep(60) # Sleep on error to avoid rapid loops
 
     except KeyboardInterrupt:
         logger.info("Stopping bot...")
