@@ -26,7 +26,7 @@ module.exports = {
             script: 'scripts/affiliate_verifier.py',
             interpreter: process.platform === 'win32' ? 'python' : 'python3',
             cwd: './',
-            restart_delay: 60000, // Check every 60s (script runs once then exits, so this makes it loop)
+            cwd: './',
             env: {
                 PYTHONUNBUFFERED: '1'
             }
