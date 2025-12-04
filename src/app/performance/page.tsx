@@ -1,4 +1,5 @@
 import { SignalTable } from "@/components/SignalTable";
+import { PerformanceSummary } from "@/components/PerformanceSummary";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -22,6 +23,7 @@ export default function PerformancePage() {
                     </p>
                 </div>
 
+                <PerformanceSummary />
                 <SignalTable />
             </main>
         </div>
