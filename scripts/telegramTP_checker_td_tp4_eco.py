@@ -682,11 +682,18 @@ async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[L
     return out
 
 # ---------- Listeners ----------
-@client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
+@client.on(events.NewMessage())
 async def on_new_signal(evt: events.NewMessage.Event):
     msg: Message = evt.message
     
-    print(f"DEBUG: Received message from {msg.chat_id}: {msg.message[:50]}...")
+    chat_title = msg.chat.title if hasattr(msg.chat, 'title') else 'Unknown'
+    print(f"DEBUG: Msg from {msg.chat_id} ({chat_title}): {msg.message[:30]}...")
+
+    if msg.chat_id not in TARGET_CHAT_IDS:
+        # Optional: Print only if it looks like a signal to avoid spam
+        if "Buy" in msg.message or "Sell" in msg.message:
+            print(f"DEBUG: IGNORING message from unmonitored channel {msg.chat_id} ({chat_title})")
+        return
     
     # Check for Reply (Update to existing signal)
     if msg.is_reply:
