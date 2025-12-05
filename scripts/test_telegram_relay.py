@@ -1,6 +1,7 @@
 import asyncio
 import os
 from telethon import TelegramClient
+from telethon.sessions import StringSession
 from telegramTP_checker_td_tp4_eco import (
     CHANNELS_CONFIG, 
     format_signal_smart, 
@@ -27,7 +28,11 @@ async def main():
         print(f"❌ Session file not found at {SESSION_STRING_PATH}")
         return
 
-    client = TelegramClient(SESSION_STRING_PATH, API_ID, API_HASH)
+    # Read session string
+    with open(SESSION_STRING_PATH, "r") as f:
+        session_str = f.read().strip()
+
+    client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
     
     try:
         await client.connect()
