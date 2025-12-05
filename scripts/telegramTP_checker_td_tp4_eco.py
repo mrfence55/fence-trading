@@ -604,6 +604,10 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         # Let's force it for SL hit to be consistent with the model.
         final_profit = -1000.0
         
+        # Get Alias
+        config = CHANNELS_CONFIG.get(r["chat_id"])
+        channel_name = config["alias"] if config else r.get("chat_title", "Unknown")
+
         await send_to_website({
             "symbol": symbol,
             "type": side.upper(),
@@ -611,7 +615,7 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
             "pips": -risk, # Negative risk distance
             "tp_level": 0,
             "channel_id": r["chat_id"],
-            "channel_name": r.get("chat_title", "Unknown"),
+            "channel_name": channel_name,
             "risk_pips": risk,
             "reward_pips": 0,
             "rr_ratio": -1.0,
@@ -632,6 +636,10 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         tp_price = tps[new_hits-1] if new_hits > 0 else r["entry"]
         risk, reward, rr, profit = calc_metrics(tp_price)
         
+        # Get Alias
+        config = CHANNELS_CONFIG.get(r["chat_id"])
+        channel_name = config["alias"] if config else r.get("chat_title", "Unknown")
+
         await send_to_website({
             "symbol": symbol,
             "type": side.upper(),
@@ -640,7 +648,7 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
             "tp_level": new_hits,
             "is_win": True,
             "channel_id": r["chat_id"],
-            "channel_name": r.get("chat_title", "Unknown"),
+            "channel_name": channel_name,
             "risk_pips": risk,
             "reward_pips": reward,
             "rr_ratio": rr,
@@ -785,6 +793,10 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             # Send to Website
             # We don't have exact price from text usually, so we estimate or use TP level
             # For simplicity and speed, we just mark the TP level hit
+            # Get Alias
+            config = CHANNELS_CONFIG.get(r["chat_id"])
+            channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
+
             await send_to_website({
                 "symbol": symbol,
                 "type": side.upper(),
@@ -793,7 +805,7 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 "tp_level": new_hits,
                 "is_win": True,
                 "channel_id": r["chat_id"],
-                "channel_name": r["chat_title"] or "Unknown",
+                "channel_name": channel_name,
                 "risk_pips": 0,
                 "reward_pips": 0,
                 "rr_ratio": 0,
@@ -808,6 +820,10 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             updates['close_reason'] = close_reason
             updates['last_check_ts'] = int(time.time())
             
+            # Get Alias
+            config = CHANNELS_CONFIG.get(r["chat_id"])
+            channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
+
             await send_to_website({
                 "symbol": symbol,
                 "type": side.upper(),
@@ -815,7 +831,7 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 "pips": 0,
                 "tp_level": current_hits,
                 "channel_id": r["chat_id"],
-                "channel_name": r["chat_title"] or "Unknown",
+                "channel_name": channel_name,
                 "risk_pips": 0,
                 "reward_pips": 0,
                 "rr_ratio": 0,

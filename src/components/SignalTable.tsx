@@ -18,14 +18,6 @@ type Signal = {
     open_time?: string;
 };
 
-const CHANNEL_MAP: Record<string, string> = {
-    "The Gold Complex": "Aurora",
-    "TFXC PREMIUM": "Odin",
-    "Fredtrading - VIP - Main channel": "Fence - Main",
-    "Fredtrading - VIP - Crypto community": "Fence - Crypto",
-    "Fredtrading - Live trading / indices": "Fence Live/indices"
-};
-
 export function SignalTable() {
     const [signals, setSignals] = useState<Signal[]>([]);
     const [loading, setLoading] = useState(true);
@@ -52,19 +44,12 @@ export function SignalTable() {
     }, []);
 
     // Extract unique channels
-    const channels = ["All", ...Array.from(new Set(signals.map(s => {
-        const name = s.channel_name || "Unknown";
-        return CHANNEL_MAP[name] || name;
-    })))];
+    const channels = ["All", ...Array.from(new Set(signals.map(s => s.channel_name || "Unknown")))];
 
     // Filter signals
     const filteredSignals = activeChannel === "All"
         ? signals
-        : signals.filter(s => {
-            const name = s.channel_name || "Unknown";
-            const mappedName = CHANNEL_MAP[name] || name;
-            return mappedName === activeChannel;
-        });
+        : signals.filter(s => (s.channel_name || "Unknown") === activeChannel);
 
     if (loading) {
         return <div className="text-center p-8 text-muted-foreground">Loading performance data...</div>;
@@ -127,7 +112,7 @@ export function SignalTable() {
                                             {new Date(signal.timestamp + "Z").toLocaleString()}
                                         </td>
                                         <td className="px-4 py-3 text-xs text-muted-foreground">
-                                            {CHANNEL_MAP[signal.channel_name || ""] || signal.channel_name || "Unknown"}
+                                            {signal.channel_name || "Unknown"}
                                         </td>
                                         <td className="px-4 py-3 font-bold text-foreground">{signal.symbol}</td>
                                         <td className={cn(
