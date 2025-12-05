@@ -49,11 +49,11 @@ async def main():
         return
 
     # 2. Try IDs
-    # User mentioned "-1220837618" (with k in url usually means -100 prefix)
+    # User mentioned "Fredtrading - VIP - Main channel" with ID -1001239815745
     ids_to_try = [
-        -1001220837618, # Most likely for a channel
-        -1220837618,    # Raw ID
-        1220837618      # Positive ID
+        -1001239815745, # The ID from config
+        1239815745,     # Positive ID
+        -1239815745     # Raw ID
     ]
 
     found = False
