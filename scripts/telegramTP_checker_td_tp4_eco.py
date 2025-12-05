@@ -202,8 +202,6 @@ def parse_signal_text(text: str) -> Optional[Dict[str, Any]]:
             if m:
                 d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
             else:
-                d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
-            else:
                 m = SIG_RX_SIMPLE.search(cleaned)
                 if m:
                     d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
