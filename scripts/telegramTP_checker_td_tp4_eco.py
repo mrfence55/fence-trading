@@ -686,6 +686,8 @@ async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[L
 async def on_new_signal(evt: events.NewMessage.Event):
     msg: Message = evt.message
     
+    print(f"DEBUG: Received message from {msg.chat_id}: {msg.message[:50]}...")
+    
     # Check for Reply (Update to existing signal)
     if msg.is_reply:
         reply_header = await msg.get_reply_message()
@@ -694,7 +696,11 @@ async def on_new_signal(evt: events.NewMessage.Event):
             return
 
     parsed = parse_signal_text(msg.message)
-    if not parsed: return
+    if not parsed:
+        print(f"DEBUG: Failed to parse message from {msg.chat_id}")
+        return
+    
+    print(f"DEBUG: Successfully parsed signal: {parsed['symbol']} {parsed['side']}")
 
     msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
     anchor = ceil_to_next_minute_utc(msg_ts)

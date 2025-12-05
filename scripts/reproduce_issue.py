@@ -1,16 +1,15 @@
 import re
 
 text = """
-HALF SIZE 
+XAUUSD Buy
+Enter 4223
+SL 4212
+TP1 4226
+TP2 4229
+TP3 4235
+TP4 4245
 
-ETHUSD Scalp Long 
-
-Entry (market): 3137
-SL: 3118
-TP1: 3148
-TP2: 3154
-TP3: 3157
-TP4: 3161
+SL entry at TP1
 """
 
 # Copying regexes from the main file
