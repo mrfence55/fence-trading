@@ -685,7 +685,7 @@ async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[L
     return out
 
 # ---------- Listeners ----------
-@client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
+@client.on(events.NewMessage())
 async def on_new_signal(evt: events.NewMessage.Event):
     msg: Message = evt.message
     
