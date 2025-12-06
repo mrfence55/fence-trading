@@ -26,7 +26,8 @@ CHANNELS_CONFIG = {
     -1001220837618: {"alias": "Odin",            "target_id": -1003396317717, "type": "FOREX"},
     -1001239815745: {"alias": "Fence Trading",   "target_id": -1003330700210, "type": "FOREX"},
     -1002208969496: {"alias": "Fence Crypto",    "target_id": -1003368566412, "type": "CRYPTO"},
-    -1001979286278: {"alias": "Fence Live",      "target_id": -1003437413343, "type": "INDICES"}
+    -1001979286278: {"alias": "Fence Live",      "target_id": -1003437413343, "type": "INDICES"},
+    -1002309276824: {"alias": "Fence Free (Test)", "target_id": -1003330700210, "type": "FOREX"} # Test Channel
 }
 TARGET_CHAT_IDS = list(CHANNELS_CONFIG.keys())
 
@@ -38,6 +39,8 @@ ASSET_STYLES = {
     "INDICES": {"emoji": "📈", "color": "🟧", "tag": "#INDICES #US30"},
     "UNKNOWN": {"emoji": "⚡", "color": "⬜", "tag": "#TRADING"}
 }
+
+
 
 SMART_PHRASES = {
     "breakout": ["Price is breaking key structure.", "Momentum is building for a breakout.", "Volatility incoming."],
@@ -682,12 +685,15 @@ async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[L
     return out
 
 # ---------- Listeners ----------
-@client.on(events.NewMessage())
+@client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
 async def on_new_signal(evt: events.NewMessage.Event):
     msg: Message = evt.message
     
     chat_title = msg.chat.title if hasattr(msg.chat, 'title') else 'Unknown'
-    print(f"DEBUG: Msg from {msg.chat_id} ({chat_title}): {msg.message[:30]}...")
+    # Sanitize for Windows console
+    safe_msg = msg.message[:30].encode('ascii', 'replace').decode('ascii')
+    safe_title = chat_title.encode('ascii', 'replace').decode('ascii')
+    print(f"DEBUG: Msg from {msg.chat_id} ({safe_title}): {safe_msg}...")
 
     if msg.chat_id not in TARGET_CHAT_IDS:
         # Optional: Print only if it looks like a signal to avoid spam
