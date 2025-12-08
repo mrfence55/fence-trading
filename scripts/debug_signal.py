@@ -131,15 +131,13 @@ async def main():
             break
             
     if not session_str:
-        print(f"❌ Session file not found. Checked: {possible_paths}")
-        print("\n📂 Current Directory Content:")
-        print(os.listdir("."))
-        if os.path.exists("scripts"):
-            print("\n📂 Scripts Directory Content:")
-            print(os.listdir("scripts"))
-        return
-
-    client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
+        print(f"⚠️ Session file not found. Starting interactive login...")
+        # Create a new session file
+        client = TelegramClient("debug_session", API_ID, API_HASH)
+        await client.start()
+        print("✅ Logged in! Saving session for next time...")
+    else:
+        client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
     
     @client.on(events.NewMessage())
     async def handler(evt):
