@@ -215,7 +215,8 @@ def parse_signal_text(text: str) -> Optional[Dict[str, Any]]:
 
     if not sym.strip(): return None
     try:
-        entry=_num(d["entry"]); sl=_num(d["sl"]); tp1=_num(d["tp1"])
+        entry=_num(d["entry"]); sl=_num(d["sl"])
+        tp1=_num(d["tp1"]) if d.get("tp1") else None
         tp2=_num(d["tp2"]) if d.get("tp2") else None
         tp3=_num(d["tp3"]) if d.get("tp3") else None
         tp4=_num(d["tp4"]) if d.get("tp4") else None
@@ -234,7 +235,7 @@ def parse_signal_text(text: str) -> Optional[Dict[str, Any]]:
         "tp4": tps_ok[3] if len(tps_ok) > 3 else None,
         "note": note
     }
-    if rec["tp1"] is None: return None
+    # Allow signals without TPs - they will be updated later
     return rec
 
 # ---------- DB ----------
