@@ -132,6 +132,11 @@ async def main():
             
     if not session_str:
         print(f"❌ Session file not found. Checked: {possible_paths}")
+        print("\n📂 Current Directory Content:")
+        print(os.listdir("."))
+        if os.path.exists("scripts"):
+            print("\n📂 Scripts Directory Content:")
+            print(os.listdir("scripts"))
         return
 
     client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
