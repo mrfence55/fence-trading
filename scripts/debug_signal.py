@@ -111,20 +111,28 @@ def parse_signal_text(text: str):
 async def main():
     print("🚀 Starting Debug Signal Listener...")
     
-    # Check session
-    if not os.path.exists(SESSION_STRING_PATH):
-        # Try finding it in parent dir
-        parent_sess = os.path.join("..", SESSION_STRING_PATH)
-        if os.path.exists(parent_sess):
-            print(f"Found session in parent dir: {parent_sess}")
-            with open(parent_sess, "r") as f:
+    # Check session in multiple locations
+    possible_paths = [
+        "tg_session.txt",
+        "scripts/tg_session.txt",
+        "../tg_session.txt",
+        os.path.join(os.path.dirname(__file__), "tg_session.txt")
+    ]
+    
+    session_str = None
+    found_path = None
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            found_path = path
+            print(f"✅ Found session file at: {path}")
+            with open(path, "r") as f:
                 session_str = f.read().strip()
-        else:
-            print(f"❌ Session file not found at {SESSION_STRING_PATH}")
-            return
-    else:
-        with open(SESSION_STRING_PATH, "r") as f:
-            session_str = f.read().strip()
+            break
+            
+    if not session_str:
+        print(f"❌ Session file not found. Checked: {possible_paths}")
+        return
 
     client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
     
