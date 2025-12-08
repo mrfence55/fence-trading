@@ -15,6 +15,38 @@ export async function POST(request: Request) {
 
         console.log("Received Signal Update:", body);
 
+        // Check if signal already exists (same symbol + channel + open_time)
+        if (body.open_time && body.channel_id) {
+            const existing = db.prepare(`
+                SELECT id FROM signals 
+                WHERE symbol = ? AND channel_id = ? AND open_time = ?
+            `).get(body.symbol, body.channel_id, body.open_time) as { id: number } | undefined;
+
+            if (existing) {
+                // Update existing signal
+                const stmt = db.prepare(`
+                    UPDATE signals 
+                    SET status = ?, pips = ?, tp_level = ?, risk_pips = ?, 
+                        reward_pips = ?, rr_ratio = ?, profit = ?
+                    WHERE id = ?
+                `);
+
+                stmt.run(
+                    body.status,
+                    body.pips || 0,
+                    body.tp_level || 0,
+                    body.risk_pips || 0,
+                    body.reward_pips || 0,
+                    body.rr_ratio || 0,
+                    body.profit || 0,
+                    existing.id
+                );
+
+                return NextResponse.json({ success: true, id: existing.id, updated: true });
+            }
+        }
+
+        // Create new signal
         const stmt = db.prepare(`
             INSERT INTO signals (symbol, type, status, pips, tp_level, channel_id, channel_name, risk_pips, reward_pips, rr_ratio, profit, open_time)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -35,7 +67,7 @@ export async function POST(request: Request) {
             body.open_time || null
         );
 
-        return NextResponse.json({ success: true, id: info.lastInsertRowid });
+        return NextResponse.json({ success: true, id: info.lastInsertRowid, updated: false });
     } catch (error) {
         console.error("Signal API Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -52,5 +84,4 @@ export async function GET() {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
-
 
