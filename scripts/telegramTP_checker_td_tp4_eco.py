@@ -22,7 +22,7 @@ API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 
 # Source Channels and their Targets
 CHANNELS_CONFIG = {
-    -1002154812244: {"alias": "Aurora (Gold)",   "target_id": -1003369420967, "type": "GOLD"},
+    -1001821344: {"alias": "Aurora (Gold)",   "target_id": -1003369420967, "type": "GOLD"},  # The Gold Complex
     -1001220837618: {"alias": "Odin",            "target_id": -1003396317717, "type": "FOREX"},
     -1001239815745: {"alias": "Fence Trading",   "target_id": -1003330700210, "type": "FOREX"},
     -1002208969496: {"alias": "Fence Crypto",    "target_id": -1003368566412, "type": "CRYPTO"},
