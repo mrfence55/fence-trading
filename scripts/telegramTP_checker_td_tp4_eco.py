@@ -837,25 +837,32 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             updates['close_reason'] = close_reason
             updates['last_check_ts'] = int(time.time())
             
-            # Get Alias
-            config = CHANNELS_CONFIG.get(r["chat_id"])
-            channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
+            # Only log SL to website if NO TPs were hit (pure loss)
+            if status == "SL_HIT" and current_hits == 0:
+                # Get Alias
+                config = CHANNELS_CONFIG.get(r["chat_id"])
+                channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
 
-            await send_to_website({
-                "symbol": symbol,
-                "type": side.upper(),
-                "status": status, # SL_HIT or closed
-                "pips": 0,
-                "tp_level": current_hits,
-                "channel_id": r["chat_id"],
-                "channel_name": channel_name,
-                "risk_pips": 0,
-                "reward_pips": 0,
-                "rr_ratio": 0,
-                "profit": -1000 if status == "SL_HIT" else 0,
-                "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
-            })
-            print(f"Telegram Update: {symbol} {status}!")
+                await send_to_website({
+                    "symbol": symbol,
+                    "type": side.upper(),
+                    "status": status,
+                    "pips": 0,
+                    "tp_level": 0,
+                    "is_win": False,
+                    "channel_id": r["chat_id"],
+                    "channel_name": channel_name,
+                    "risk_pips": 0,
+                    "reward_pips": 0,
+                    "rr_ratio": 0,
+                    "profit": -1000,
+                    "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
+                })
+                print(f"Telegram Update: {symbol} SL HIT (Pure Loss) - Logged to website")
+            elif status == "SL_HIT" and current_hits > 0:
+                print(f"Telegram Update: {symbol} SL HIT after TP{current_hits} - NOT logged (partial win)")
+            else:
+                print(f"Telegram Update: {symbol} {status}!")
 
         if updates:
             await update_signal(rec_id, **updates)
