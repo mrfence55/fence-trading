@@ -807,9 +807,29 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             updates['hits'] = new_hits
             updates['last_check_ts'] = int(time.time())
             
-            # Send to Website
-            # We don't have exact price from text usually, so we estimate or use TP level
-            # For simplicity and speed, we just mark the TP level hit
+            # Calculate RR (Risk-Reward Ratio)
+            entry = float(r["entry"])
+            sl = float(r["sl"])
+            tp_value = None
+            
+            # Get the TP level that was hit
+            if new_hits == 1:
+                tp_value = float(r["tp1"])
+            elif new_hits == 2:
+                tp_value = float(r["tp2"])
+            elif new_hits == 3:
+                tp_value = float(r["tp3"])
+            elif new_hits == 4 and r.get("tp4"):
+                tp_value = float(r["tp4"])
+            
+            # Calculate RR
+            risk_pips = abs(entry - sl)
+            reward_pips = abs(tp_value - entry) if tp_value else 0
+            rr_ratio = round(reward_pips / risk_pips, 2) if risk_pips > 0 else 0
+            
+            # Profit calculation: Assuming 1% risk per trade, profit = RR * 1%
+            profit = round(rr_ratio * 1000, 2)  # $1000 base risk
+            
             # Get Alias
             config = CHANNELS_CONFIG.get(r["chat_id"])
             channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
@@ -818,18 +838,18 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 "symbol": symbol,
                 "type": side.upper(),
                 "status": "TP_HIT",
-                "pips": 0, # We don't calculate pips for text updates yet
+                "pips": round(reward_pips, 2),
                 "tp_level": new_hits,
                 "is_win": True,
                 "channel_id": r["chat_id"],
                 "channel_name": channel_name,
-                "risk_pips": 0,
-                "reward_pips": 0,
-                "rr_ratio": 0,
-                "profit": 0,
+                "risk_pips": round(risk_pips, 2),
+                "reward_pips": round(reward_pips, 2),
+                "rr_ratio": rr_ratio,
+                "profit": profit,
                 "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
             })
-            print(f"Telegram Update: {symbol} TP{new_hits} Hit!")
+            print(f"Telegram Update: {symbol} TP{new_hits} Hit! RR: {rr_ratio}R (${profit})")
 
         # Handle SL/Close
         if status:
