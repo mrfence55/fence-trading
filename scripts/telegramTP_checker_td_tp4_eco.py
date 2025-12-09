@@ -629,8 +629,6 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
     if new_hits > hits_before and _may_send(new_hits):
         text = f"✅ {fmt_hits(new_hits)} truffet."
         await reply_status(r["chat_id"], r["msg_id"], text)
-        ctx = f"{symbol} {'BUY' if side=='long' else 'SELL'} — {fmt_hits(new_hits)} truffet."
-        await send_free(ctx)
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
         
@@ -661,7 +659,6 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
     if closed and not sl_hit and new_hits >= 4 and _may_send(new_hits):
         text = "🎯 TP4 truffet — ferdig!"
         await reply_status(r["chat_id"], r["msg_id"], text)
-        await send_free(f"{symbol} {'BUY' if side=='long' else 'SELL'} — TP4 truffet — ferdig!")
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
 
