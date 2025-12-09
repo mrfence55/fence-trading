@@ -628,7 +628,11 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if new_hits > hits_before and _may_send(new_hits):
         text = f"✅ {fmt_hits(new_hits)} truffet."
-        await reply_status(r["chat_id"], r["msg_id"], text)
+        # Reply in destination channel where bot has admin rights
+        target_chat = r.get("target_chat_id")
+        target_msg = r.get("target_msg_id")
+        if target_chat and target_msg:
+            await reply_status(target_chat, target_msg, text)
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
         
@@ -749,6 +753,24 @@ async def on_new_signal(evt: events.NewMessage.Event):
             print(f"Failed to forward to target channel: {e}")
 
     await insert_signal(rec)
+    
+    # Send initial signal to website (enables deduplication)
+    if config:
+        channel_name = config["alias"]
+        await send_to_website({
+            "symbol": rec["symbol"],
+            "type": rec["side"].upper(),
+            "status": "NEW",
+            "pips": 0,
+            "tp_level": 0,
+            "channel_id": msg.chat_id,
+            "channel_name": channel_name,
+            "risk_pips": 0,
+            "reward_pips": 0,
+            "rr_ratio": 0,
+            "profit": 0,
+            "open_time": datetime.fromtimestamp(msg_ts, tz=timezone.utc).isoformat()
+        })
     # keep silent on registration to reduce noise
 
 async def handle_reply_update(msg: Message, original_msg_id: int):
