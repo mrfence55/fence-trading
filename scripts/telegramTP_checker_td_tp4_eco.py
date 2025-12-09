@@ -628,7 +628,8 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if new_hits > hits_before and _may_send(new_hits):
         text = f"✅ {fmt_hits(new_hits)} truffet."
-        await reply_status(r["chat_id"], r["msg_id"], text)
+        if r.get("target_chat_id") and r.get("target_msg_id"):
+            await reply_status(r["target_chat_id"], r["target_msg_id"], text)
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
         
@@ -658,7 +659,8 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if closed and not sl_hit and new_hits >= 4 and _may_send(new_hits):
         text = "🎯 TP4 truffet — ferdig!"
-        await reply_status(r["chat_id"], r["msg_id"], text)
+        if r.get("target_chat_id") and r.get("target_msg_id"):
+            await reply_status(r["target_chat_id"], r["target_msg_id"], text)
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
 
@@ -745,6 +747,9 @@ async def on_new_signal(evt: events.NewMessage.Event):
             rec["target_chat_id"] = target_id
             rec["target_msg_id"] = sent_msg.id
             print(f"Forwarded new signal to {alias}: {rec['symbol']}")
+            msg_ts = rec["created_at"]
+            open_time_str = datetime.fromtimestamp(msg_ts, tz=timezone.utc).isoformat()
+            await send_to_website({"symbol": rec["symbol"], "type": rec["side"].upper(), "status": "NEW", "pips": 0, "tp_level": 0, "channel_id": msg.chat_id, "channel_name": alias, "risk_pips": 0, "reward_pips": 0, "rr_ratio": 0, "profit": 0, "open_time": open_time_str})
         except Exception as e:
             print(f"Failed to forward to target channel: {e}")
 
