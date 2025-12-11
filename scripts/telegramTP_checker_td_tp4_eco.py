@@ -747,9 +747,6 @@ async def on_new_signal(evt: events.NewMessage.Event):
             rec["target_chat_id"] = target_id
             rec["target_msg_id"] = sent_msg.id
             print(f"Forwarded new signal to {alias}: {rec['symbol']}")
-            msg_ts = rec["created_at"]
-            open_time_str = datetime.fromtimestamp(msg_ts, tz=timezone.utc).isoformat()
-            await send_to_website({"symbol": rec["symbol"], "type": rec["side"].upper(), "status": "NEW", "pips": 0, "tp_level": 0, "channel_id": msg.chat_id, "channel_name": alias, "risk_pips": 0, "reward_pips": 0, "rr_ratio": 0, "profit": 0, "open_time": open_time_str})
         except Exception as e:
             print(f"Failed to forward to target channel: {e}")
 

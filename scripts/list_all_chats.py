@@ -8,7 +8,7 @@ async def main():
     print("🚀 Listing all accessible Telegram Chats...")
     
     if not os.path.exists(SESSION_STRING_PATH):
-        print(f"❌ Session file not found at {SESSION_STRING_PATH}")
+   |\     print(f"❌ Session file not found at {SESSION_STRING_PATH}")
         return
 
     with open(SESSION_STRING_PATH, "r") as f:
