@@ -592,9 +592,10 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         return risk_pips, reward_pips, rr, profit
 
     if sl_hit:
-        text = "❌ SL truffet — avslutter."
-        await reply_status(r["chat_id"], r["msg_id"], text)
-        ANNOUNCED_LAST_TS[rec_id] = now_s
+        text = "❌ SL Hit."
+        if r.get("target_chat_id") and r.get("target_msg_id"):
+            await reply_status(r["target_chat_id"], r["target_msg_id"], text)
+        ANNOUNCED_LAST_TS[rec_id] = now_s # Changed from ANNOUNCED_SL_HIT to ANNOUNCED_LAST_TS to match original logic
         
         # Send SL to website
         risk, reward, rr, profit = calc_metrics(sl)
@@ -629,7 +630,10 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
     if new_hits > hits_before and _may_send(new_hits):
         text = f"✅ {fmt_hits(new_hits)} truffet."
         if r.get("target_chat_id") and r.get("target_msg_id"):
+            print(f"DEBUG: Replying to destination {r['target_chat_id']} (Source: {r['chat_id']})")
             await reply_status(r["target_chat_id"], r["target_msg_id"], text)
+        else:
+            print(f"DEBUG: No target_chat_id for signal {rec_id}, skipping reply.")
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
         
@@ -694,6 +698,7 @@ async def on_new_signal(evt: events.NewMessage.Event):
     safe_msg = msg.message[:30].encode('ascii', 'replace').decode('ascii')
     safe_title = chat_title.encode('ascii', 'replace').decode('ascii')
     print(f"DEBUG: Msg from {msg.chat_id} ({safe_title}): {safe_msg}...")
+    print("DEBUG: Fence Bot v2.1 - Reply Fix Active")
 
     
     # Check for Reply (Update to existing signal)
