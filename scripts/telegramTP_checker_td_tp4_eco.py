@@ -721,6 +721,34 @@ async def on_new_signal(evt: events.NewMessage.Event):
     
     print(f"DEBUG: Successfully parsed signal: {parsed['symbol']} {parsed['side']}")
 
+    # --- Deduplication Check ---
+    # Ignore if we received the same signal (Symbol + Side + Channel) in the last 15 minutes
+    msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
+    min_ts = msg_ts - (15 * 60) # 15 minutes ago
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM signals WHERE chat_id=? AND symbol=? AND side=? AND created_at >= ?",
+            (msg.chat_id, parsed['symbol'], parsed['side'], min_ts)
+        ) as cursor:
+            if await cursor.fetchone():
+                print(f"DEBUG: Skipping DUPLICATE signal: {parsed['symbol']} ({parsed['side']}) from {msg.chat_id}")
+                return
+
+    # --- Deduplication Check ---
+    # Ignore if we received the same signal (Symbol + Side + Channel) in the last 15 minutes
+    msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
+    min_ts = msg_ts - (15 * 60) # 15 minutes ago
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM signals WHERE chat_id=? AND symbol=? AND side=? AND created_at >= ?",
+            (msg.chat_id, parsed['symbol'], parsed['side'], min_ts)
+        ) as cursor:
+            if await cursor.fetchone():
+                print(f"DEBUG: Skipping DUPLICATE signal: {parsed['symbol']} ({parsed['side']}) from {msg.chat_id}")
+                return
+
     msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
     anchor = ceil_to_next_minute_utc(msg_ts)
 
