@@ -66,7 +66,7 @@ def get_smart_commentary(text):
         # Default professional fillers if no keywords found
         defaults = [
             "Market structure looks prime for this move.",
-            "Validating entry criteria now.",
+            "Setup confirmed by algorithm.",
             "Following the institutional flow.",
             "Key liquidity levels identified."
         ]
@@ -758,6 +758,25 @@ async def on_new_signal(evt: events.NewMessage.Event):
             rec["target_chat_id"] = target_id
             rec["target_msg_id"] = sent_msg.id
             print(f"Forwarded new signal to {alias}: {rec['symbol']}")
+            
+            # Send NEW signal to website (for upsert/deduplication)
+            try:
+                await send_to_website({
+                    "symbol": rec["symbol"],
+                    "type": rec["side"].upper(),
+                    "status": "NEW",
+                    "entry": rec["entry"],
+                    "sl": rec["sl"],
+                    "tp1": rec["tp1"],
+                    "tp2": rec["tp2"],
+                    "tp3": rec["tp3"],
+                    "tp4": rec["tp4"],
+                    "channel_id": rec["chat_id"],
+                    "channel_name": alias,
+                    "open_time": datetime.fromtimestamp(rec["created_at"], tz=timezone.utc).isoformat()
+                })
+            except Exception as e:
+                print(f"Failed to send NEW signal to website: {e}")
         except Exception as e:
             print(f"Failed to forward to target channel: {e}")
 
