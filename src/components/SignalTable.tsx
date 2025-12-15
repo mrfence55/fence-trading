@@ -132,7 +132,8 @@ export function SignalTable() {
                                         </td>
                                         <td className={cn(
                                             "px-4 py-3 text-right font-mono font-bold",
-                                            (signal.profit || 0) > 0 ? "text-green-500" : "text-red-500"
+                                            (signal.profit || 0) > 0 ? "text-green-500" :
+                                                (signal.profit || 0) < 0 ? "text-red-500" : "text-gray-500" // Grey for 0
                                         )}>
                                             {signal.profit
                                                 ? (signal.profit > 0 ? "+" : "") + "$" + signal.profit.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -153,7 +154,7 @@ function Badge({ status }: { status: string }) {
     let color = "bg-gray-500/10 text-gray-500";
     if (status === "TP_HIT") color = "bg-green-500/10 text-green-500";
     if (status === "SL_HIT") color = "bg-red-500/10 text-red-500";
-    if (status === "CLOSED") color = "bg-blue-500/10 text-blue-500";
+    if (status === "CLOSED" || status === "BREAKEVEN") color = "bg-gray-500/10 text-gray-400"; // Grey for BE/Closed
 
     return (
         <span className={cn("px-2 py-1 rounded-full text-xs font-bold w-fit", color)}>
