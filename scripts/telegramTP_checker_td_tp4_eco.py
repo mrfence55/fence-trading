@@ -842,6 +842,14 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
     if new_hits is None and status is None:
         return # Not a relevant update
 
+    # 1.5 Check if reply is actually a NEW signal for a DIFFERENT symbol
+    # (e.g. Admin replies "Buy Gold" to a USDJPY signal)
+    potential_new_sig = parse_signal_text(msg.message)
+    if potential_new_sig:
+        # We need to know the original signal's symbol to compare.
+        # We can fetch it first.
+        pass # Will do it after fetching 'r'
+
     # 2. Find the original signal in DB
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -851,6 +859,15 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
         if not r:
             print(f"Original signal not found for reply: {msg.id} -> {original_msg_id}")
             return
+            
+        # Check for symbol mismatch in reply
+        if potential_new_sig:
+             reply_sym = potential_new_sig['symbol']
+             orig_sym = r['symbol']
+             # Normalize both to compare (e.g. XAUUSD vs XAU/USD)
+             if _normalize_symbol(reply_sym) != _normalize_symbol(orig_sym):
+                 print(f"DEBUG: Ignoring reply to {orig_sym} because it contains signal for {reply_sym}")
+                 return
 
         # 3. Update logic
         current_hits = r['hits']
