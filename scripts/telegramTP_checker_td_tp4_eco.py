@@ -973,8 +973,9 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             else:
                 print(f"Telegram Update: {symbol} {status}!")
 
-        if updates:
-            await update_signal(rec_id, **updates)
+        if updates or (new_hits and new_hits > current_hits):
+            if updates:
+                await update_signal(rec_id, **updates)
             
             # Update the Target Channel (Reply Thread)
             target_chat_id = r['target_chat_id']
@@ -983,7 +984,21 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             if target_chat_id and target_msg_id:
                 update_msg = ""
                 if new_hits:
-                    update_msg = f"✅ **TP{new_hits} HIT!** 🚀\n#{symbol}"
+                    # Use the calculated profit from above if available
+                    # We need to re-fetch/calculate if not in local scope? 
+                    # Actually, 'profit' and 'rr_ratio' are defined in the 'if new_hits' block above.
+                    # But they are local variables inside the 'if'. 
+                    # Python specific: variables in 'if' blocks leak to outer scope if executed.
+                    # But to be safe, we should rely on what we just calculated.
+                    
+                    # Re-calculate briefly or assume defined if new_hits > current_hits
+                    try:
+                        p_text = f"+${profit}" if 'profit' in locals() else ""
+                        rr_text = f"{rr_ratio}R" if 'rr_ratio' in locals() else ""
+                        update_msg = f"✅ **TP{new_hits} HIT!** 🚀\n{rr_text} - {p_text}\n#{symbol}"
+                    except:
+                        update_msg = f"✅ **TP{new_hits} HIT!** 🚀\n#{symbol}"
+
                 elif status == "SL_HIT":
                     update_msg = f"❌ **SL HIT**\n#{symbol}"
                 elif status == "closed":
@@ -992,7 +1007,7 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 if update_msg:
                     try:
                         await client.send_message(target_chat_id, update_msg, reply_to=target_msg_id)
-                        print(f"Replied to thread in target channel: {update_msg}")
+                        print(f"Replied to thread: {update_msg.replace(chr(10), ' ')}")
                     except Exception as e:
                         print(f"Failed to reply to thread: {e}")
 
