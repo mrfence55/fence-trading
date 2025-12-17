@@ -721,12 +721,6 @@ async def on_new_signal(evt: events.NewMessage.Event):
     
     print(f"DEBUG: Successfully parsed signal: {parsed['symbol']} {parsed['side']}")
 
-    # --- Deduplication Check ---
-    # Ignore if we received the same signal (Symbol + Side + Channel) in the last 15 minutes
-    msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
-    min_ts = msg_ts - (15 * 60) # 15 minutes ago
-
-    async with aiosqlite.connect(DB_PATH) as db:
     # --- Deduplication Check (STRICT) ---
     # Ignore if we received the same signal (Symbol + Side) from ANY channel in the last 20 minutes.
     # This prevents cross-posting duplicates (e.g. Source -> VIP -> Free).
