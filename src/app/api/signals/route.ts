@@ -17,10 +17,21 @@ export async function POST(request: Request) {
 
         // Check if signal already exists (same symbol + channel + open_time)
         if (body.open_time && body.channel_id) {
-            const existing = db.prepare(`
+            // Try exact match first
+            let existing = db.prepare(`
                 SELECT id FROM signals 
                 WHERE symbol = ? AND channel_id = ? AND open_time = ?
             `).get(body.symbol, body.channel_id, body.open_time) as { id: number } | undefined;
+
+            // Fallback: If not found, try matching the first 19 characters (YYYY-MM-DDTHH:MM:SS)
+            // This handles potential "Z" vs "+00:00" discrepancies
+            if (!existing) {
+                const timePrefix = body.open_time.substring(0, 19);
+                existing = db.prepare(`
+                    SELECT id FROM signals 
+                    WHERE symbol = ? AND channel_id = ? AND substr(open_time, 1, 19) = ?
+                 `).get(body.symbol, body.channel_id, timePrefix) as { id: number } | undefined;
+            }
 
             if (existing) {
                 // Update existing signal
