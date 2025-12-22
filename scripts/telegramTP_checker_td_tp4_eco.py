@@ -641,12 +641,22 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         return
 
     if new_hits > hits_before and _may_send(new_hits):
-        text = f"✅ {fmt_hits(new_hits)} truffet."
-        if r.get("target_chat_id") and r.get("target_msg_id"):
-            print(f"DEBUG: Replying to destination {r['target_chat_id']} (Source: {r['chat_id']})")
-            await reply_status(r["target_chat_id"], r["target_msg_id"], text)
+        text = f"✅ {fmt_hits(new_hits)} truffet.\n#{symbol}"
+        target_chat_id = r.get("target_chat_id")
+        target_msg_id = r.get("target_msg_id")
+
+        if target_chat_id:
+            print(f"DEBUG: [Watcher] Hit TP{new_hits} for {symbol}. Sending to {target_chat_id} (Thread: {target_msg_id})")
+            try:
+                if target_msg_id:
+                    await reply_status(target_chat_id, target_msg_id, text)
+                else:
+                    await client.send_message(target_chat_id, text)
+            except Exception as e:
+                print(f"DEBUG: [Watcher] Error sending reply: {e}")
         else:
-            print(f"DEBUG: No target_chat_id for signal {rec_id}, skipping reply.")
+            print(f"DEBUG: [Watcher] No target_chat_id for signal {rec_id} ({symbol}), skipping reply.")
+        
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
         
@@ -729,11 +739,12 @@ async def on_new_signal(evt: events.NewMessage.Event):
     print(f"DEBUG: Successfully parsed signal: {parsed['symbol']} {parsed['side']}")
 
     # --- Fingerprint Check ---
-    # Create a unique fingerprint based on symbol, side and 10-minute window
-    symbol_clean = re.sub(r'[^A-Z0-9]', '', parsed['symbol'].upper())
+    # Create a unique fingerprint based on normalized symbol, side and 10-minute window
+    symbol_fp = re.sub(r'[^A-Z0-9]', '', parsed['symbol'].upper())
+    side_fp = "LONG" if parsed['side'].lower() in ("long", "buy") else "SHORT"
     msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
     rounded_ts = (msg_ts // 600) * 600
-    fingerprint = f"{symbol_clean}_{parsed['side'].upper()}_{rounded_ts}"
+    fingerprint = f"{symbol_fp}_{side_fp}_{rounded_ts}"
 
     # --- Deduplication Check (STRICT FINGERPRINT) ---
     async with aiosqlite.connect(DB_PATH) as db:
@@ -741,8 +752,9 @@ async def on_new_signal(evt: events.NewMessage.Event):
             "SELECT id FROM signals WHERE fingerprint=? AND created_at >= ?",
             (fingerprint, msg_ts - (20 * 60))
         ) as cursor:
-            if await cursor.fetchone():
-                print(f"DEBUG: Skipping DUPLICATE signal: {parsed['symbol']} - Fingerprint {fingerprint} already logged.")
+            existing_row = await cursor.fetchone()
+            if existing_row:
+                print(f"DEBUG: Skipping DUPLICATE signal: {parsed['symbol']} - Already logged as ID {existing_row[0]} (Fingerprint: {fingerprint})")
                 return
 
     msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
@@ -993,21 +1005,12 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             target_chat_id = r['target_chat_id']
             target_msg_id = r['target_msg_id']
             
-            if target_chat_id and target_msg_id:
+            if target_chat_id:
                 update_msg = ""
                 if new_hits:
-                    # Use the calculated profit from above if available
-                    # We need to re-fetch/calculate if not in local scope? 
-                    # Actually, 'profit' and 'rr_ratio' are defined in the 'if new_hits' block above.
-                    # But they are local variables inside the 'if'. 
-                    # Python specific: variables in 'if' blocks leak to outer scope if executed.
-                    # But to be safe, we should rely on what we just calculated.
-                    
-                    # Re-calculate briefly or assume defined if new_hits > current_hits
                     try:
-                        p_text = f"+${profit}" if 'profit' in locals() else ""
-                        rr_text = f"{rr_ratio}R" if 'rr_ratio' in locals() else ""
-                        update_msg = f"✅ **TP{new_hits} HIT!** 🚀\n{rr_text} - {p_text}\n#{symbol}"
+                        p_line = f"\n{rr_ratio}R - +${profit}" if ('profit' in locals() or 'profit' in globals()) else ""
+                        update_msg = f"✅ **TP{new_hits} HIT!** 🚀{p_line}\n#{symbol}"
                     except:
                         update_msg = f"✅ **TP{new_hits} HIT!** 🚀\n#{symbol}"
 
@@ -1017,11 +1020,17 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                     update_msg = f"🔒 **CLOSED**\n#{symbol}"
                 
                 if update_msg:
+                    print(f"DEBUG: [ReplyHandler] Attempting reply to {target_chat_id} (Thread: {target_msg_id})...")
                     try:
-                        await client.send_message(target_chat_id, update_msg, reply_to=target_msg_id)
-                        print(f"Replied to thread: {update_msg.replace(chr(10), ' ')}")
+                        if target_msg_id:
+                            await client.send_message(target_chat_id, update_msg, reply_to=target_msg_id)
+                        else:
+                            await client.send_message(target_chat_id, update_msg)
+                        print(f"DEBUG: [ReplyHandler] Success: {update_msg.replace(chr(10), ' ')}")
                     except Exception as e:
-                        print(f"Failed to reply to thread: {e}")
+                        print(f"DEBUG: [ReplyHandler] ERROR: {e}")
+            else:
+                print(f"DEBUG: [ReplyHandler] No target chat ID for signal {rec_id} ({symbol}). Cannot reply.")
 
 
 # ---------- Loop ----------
