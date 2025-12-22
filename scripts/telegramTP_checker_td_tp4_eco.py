@@ -267,11 +267,13 @@ CREATE TABLE IF NOT EXISTS signals(
   anchor_ts INTEGER NOT NULL,
   last_check_ts INTEGER NOT NULL,
   target_chat_id INTEGER,
-  target_msg_id INTEGER
+  target_msg_id INTEGER,
+  fingerprint TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_open ON signals(status);
 CREATE INDEX IF NOT EXISTS idx_symbol ON signals(symbol);
 CREATE INDEX IF NOT EXISTS idx_created ON signals(created_at);
+CREATE INDEX IF NOT EXISTS idx_fingerprint ON signals(fingerprint);
 """
 
 async def db_init():
@@ -294,6 +296,10 @@ async def db_init():
             await db.execute("ALTER TABLE signals ADD COLUMN chat_title TEXT;")
         except sqlite3.OperationalError:
             pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN fingerprint TEXT;")
+        except sqlite3.OperationalError:
+            pass
         await db.commit()
 
 async def warm_start_open_signals():
@@ -307,11 +313,12 @@ async def warm_start_open_signals():
 async def insert_signal(rec: Dict[str, Any]):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            """INSERT INTO signals(chat_id,chat_title,msg_id,symbol,side,entry,sl,tp1,tp2,tp3,tp4,hits,notified_hits,status,close_reason,created_at,anchor_ts,last_check_ts)
-               VALUES(?,?,?,?,?,?,?,?,?,?,?,?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO signals(chat_id,chat_title,msg_id,symbol,side,entry,sl,tp1,tp2,tp3,tp4,hits,notified_hits,status,close_reason,created_at,anchor_ts,last_check_ts,target_chat_id,target_msg_id,fingerprint)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (rec["chat_id"], rec.get("chat_title"), rec["msg_id"], rec["symbol"], rec["side"], rec["entry"], rec["sl"],
              rec["tp1"], rec.get("tp2"), rec.get("tp3"), rec.get("tp4"),
-             0, 0, "open", None, rec["created_at"], rec["anchor_ts"], rec["created_at"])
+             0, 0, "open", None, rec["created_at"], rec["anchor_ts"], rec["created_at"],
+             rec.get("target_chat_id"), rec.get("target_msg_id"), rec.get("fingerprint"))
         )
         await db.commit()
 
@@ -721,19 +728,21 @@ async def on_new_signal(evt: events.NewMessage.Event):
     
     print(f"DEBUG: Successfully parsed signal: {parsed['symbol']} {parsed['side']}")
 
-    # --- Deduplication Check (STRICT) ---
-    # Ignore if we received the same signal (Symbol + Side) from ANY channel in the last 20 minutes.
-    # This prevents cross-posting duplicates (e.g. Source -> VIP -> Free).
+    # --- Fingerprint Check ---
+    # Create a unique fingerprint based on symbol, side and 10-minute window
+    symbol_clean = re.sub(r'[^A-Z0-9]', '', parsed['symbol'].upper())
     msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
-    min_ts = msg_ts - (20 * 60) # 20 minutes ago
+    rounded_ts = (msg_ts // 600) * 600
+    fingerprint = f"{symbol_clean}_{parsed['side'].upper()}_{rounded_ts}"
 
+    # --- Deduplication Check (STRICT FINGERPRINT) ---
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id FROM signals WHERE symbol=? AND side=? AND created_at >= ?",
-            (parsed['symbol'], parsed['side'], min_ts)
+            "SELECT id FROM signals WHERE fingerprint=? AND created_at >= ?",
+            (fingerprint, msg_ts - (20 * 60))
         ) as cursor:
             if await cursor.fetchone():
-                print(f"DEBUG: Skipping DUPLICATE signal: {parsed['symbol']} ({parsed['side']}) - Already received recently.")
+                print(f"DEBUG: Skipping DUPLICATE signal: {parsed['symbol']} - Fingerprint {fingerprint} already logged.")
                 return
 
     msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
@@ -750,7 +759,8 @@ async def on_new_signal(evt: events.NewMessage.Event):
         "created_at": msg_ts,
         "anchor_ts": anchor,
         "hits": 0,
-        "status": "open"
+        "status": "open",
+        "fingerprint": fingerprint
     }
     
     # Send to Target Channel (Smart Format)
@@ -787,8 +797,9 @@ async def on_new_signal(evt: events.NewMessage.Event):
                     "tp3": rec["tp3"],
                     "tp4": rec["tp4"],
                     "channel_id": rec["chat_id"],
-                    "channel_name": alias,
-                    "open_time": datetime.fromtimestamp(rec["created_at"], tz=timezone.utc).isoformat()
+                     "channel_name": alias,
+                    "open_time": datetime.fromtimestamp(rec["created_at"], tz=timezone.utc).isoformat(),
+                    "fingerprint": rec["fingerprint"]
                 })
             except Exception as e:
                 print(f"Failed to send NEW signal to website: {e}")
@@ -909,7 +920,8 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 "reward_pips": round(reward_pips, 2),
                 "rr_ratio": rr_ratio,
                 "profit": profit,
-                "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
+                "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat(),
+                "fingerprint": r.get("fingerprint")
             })
             print(f"Telegram Update: {symbol} TP{new_hits} Hit! RR: {rr_ratio}R (${profit})")
 

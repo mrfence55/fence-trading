@@ -20,7 +20,8 @@ export function initDB() {
       risk_pips REAL,
       reward_pips REAL,
       rr_ratio REAL,
-      profit REAL
+      profit REAL,
+      fingerprint TEXT
     )
   `);
 
@@ -32,7 +33,8 @@ export function initDB() {
     "reward_pips REAL",
     "rr_ratio REAL",
     "profit REAL",
-    "open_time DATETIME"
+    "open_time DATETIME",
+    "fingerprint TEXT"
   ];
 
   columns.forEach(col => {

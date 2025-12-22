@@ -15,7 +15,36 @@ export async function POST(request: Request) {
 
         console.log("Received Signal Update:", body);
 
-        // Check if signal already exists (same symbol + channel + open_time)
+        // Check if signal already exists (Priority 1: Fingerprint)
+        if (body.fingerprint) {
+            let existing = db.prepare(`
+                SELECT id FROM signals WHERE fingerprint = ?
+            `).get(body.fingerprint) as { id: number } | undefined;
+
+            if (existing) {
+                const stmt = db.prepare(`
+                    UPDATE signals 
+                    SET status = ?, pips = ?, tp_level = ?, risk_pips = ?, 
+                        reward_pips = ?, rr_ratio = ?, profit = ?
+                    WHERE id = ?
+                `);
+
+                stmt.run(
+                    body.status,
+                    body.pips || 0,
+                    body.tp_level || 0,
+                    body.risk_pips || 0,
+                    body.reward_pips || 0,
+                    body.rr_ratio || 0,
+                    body.profit || 0,
+                    existing.id
+                );
+
+                return NextResponse.json({ success: true, id: existing.id, updated: true, method: 'fingerprint' });
+            }
+        }
+
+        // Check if signal already exists (Priority 2: symbol + channel + open_time fallback)
         if (body.open_time && body.channel_id) {
             // Try exact match first
             let existing = db.prepare(`
@@ -24,7 +53,6 @@ export async function POST(request: Request) {
             `).get(body.symbol, body.channel_id, body.open_time) as { id: number } | undefined;
 
             // Fallback: If not found, try matching the first 19 characters (YYYY-MM-DDTHH:MM:SS)
-            // This handles potential "Z" vs "+00:00" discrepancies
             if (!existing) {
                 const timePrefix = body.open_time.substring(0, 19);
                 existing = db.prepare(`
@@ -53,14 +81,14 @@ export async function POST(request: Request) {
                     existing.id
                 );
 
-                return NextResponse.json({ success: true, id: existing.id, updated: true });
+                return NextResponse.json({ success: true, id: existing.id, updated: true, method: 'fallback' });
             }
         }
 
         // Create new signal
         const stmt = db.prepare(`
-            INSERT INTO signals (symbol, type, status, pips, tp_level, channel_id, channel_name, risk_pips, reward_pips, rr_ratio, profit, open_time)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO signals (symbol, type, status, pips, tp_level, channel_id, channel_name, risk_pips, reward_pips, rr_ratio, profit, open_time, fingerprint)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const info = stmt.run(
@@ -75,7 +103,8 @@ export async function POST(request: Request) {
             body.reward_pips || 0,
             body.rr_ratio || 0,
             body.profit || 0,
-            body.open_time || null
+            body.open_time || null,
+            body.fingerprint || null
         );
 
         return NextResponse.json({ success: true, id: info.lastInsertRowid, updated: false });
