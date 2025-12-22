@@ -45,3 +45,7 @@ next-env.d.ts
 # local
 affiliates.db
 web_signals.db
+signals.db
+signals.sqlite
+*.txt
+tg_session.txt

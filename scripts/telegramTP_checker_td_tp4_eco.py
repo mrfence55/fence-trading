@@ -746,15 +746,17 @@ async def on_new_signal(evt: events.NewMessage.Event):
     rounded_ts = (msg_ts // 600) * 600
     fingerprint = f"{symbol_fp}_{side_fp}_{rounded_ts}"
 
-    # --- Deduplication Check (STRICT FINGERPRINT) ---
+    # --- Deduplication Check (STRICT SLIDING WINDOW) ---
+    # Ignore if we received the same signal (Symbol + Side) in the last 20 minutes.
+    # This captures duplicates even if they cross the 10-minute fingerprint bucket.
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id FROM signals WHERE fingerprint=? AND created_at >= ?",
-            (fingerprint, msg_ts - (20 * 60))
+            "SELECT id FROM signals WHERE symbol=? AND side=? AND created_at >= ?",
+            (parsed['symbol'], parsed['side'], msg_ts - (20 * 60))
         ) as cursor:
             existing_row = await cursor.fetchone()
             if existing_row:
-                print(f"DEBUG: Skipping DUPLICATE signal: {parsed['symbol']} - Already logged as ID {existing_row[0]} (Fingerprint: {fingerprint})")
+                print(f"DEBUG: Skipping DUPLICATE signal: {parsed['symbol']} ({parsed['side']}) - Already exists in DB (ID: {existing_row[0]})")
                 return
 
     msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
