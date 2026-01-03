@@ -300,6 +300,12 @@ async def db_init():
             await db.execute("ALTER TABLE signals ADD COLUMN fingerprint TEXT;")
         except sqlite3.OperationalError:
             pass
+
+        # Create Index AFTER ensuring column exists
+        try:
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_fingerprint ON signals(fingerprint);")
+        except sqlite3.OperationalError:
+            pass
         await db.commit()
 
 async def warm_start_open_signals():
