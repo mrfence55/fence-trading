@@ -273,7 +273,6 @@ CREATE TABLE IF NOT EXISTS signals(
 CREATE INDEX IF NOT EXISTS idx_open ON signals(status);
 CREATE INDEX IF NOT EXISTS idx_symbol ON signals(symbol);
 CREATE INDEX IF NOT EXISTS idx_created ON signals(created_at);
-CREATE INDEX IF NOT EXISTS idx_fingerprint ON signals(fingerprint);
 """
 
 async def db_init():
