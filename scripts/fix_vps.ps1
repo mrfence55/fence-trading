@@ -16,8 +16,10 @@ Write-Host "3. Cleaning up old files..." -ForegroundColor Yellow
 Remove-Item signals.db -Force -ErrorAction SilentlyContinue
 # Remove bad env
 Remove-Item fenceWeb.env -Force -ErrorAction SilentlyContinue
-# Remove potentially corrupted node_modules (Optional but safer)
-# Write-Host "   (Skipping node_modules delete for speed, unless build fails again)" 
+# Remove potentially corrupted node_modules (CRITICAL FOR CLEAN BUILD)
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue
+Remove-Item package-lock.json -ErrorAction SilentlyContinue
 
 # 4. ENV SETUP
 Write-Host "4. Setting up Environment..." -ForegroundColor Yellow
