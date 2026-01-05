@@ -730,7 +730,7 @@ async def on_new_signal(evt: events.NewMessage.Event):
     safe_msg = msg.message[:30].encode('ascii', 'replace').decode('ascii')
     safe_title = chat_title.encode('ascii', 'replace').decode('ascii')
     print(f"DEBUG: Msg from {msg.chat_id} ({safe_title}): {safe_msg}...")
-    print("DEBUG: Fence Bot v2.1 - Reply Fix Active")
+    print("DEBUG: Fence Bot v2.2 (DB Safe) - Reply Fix Active")
 
     
     # Check for Reply (Update to existing signal)
