@@ -37,6 +37,7 @@ Write-Host "Env file created." -ForegroundColor Green
 # 5. INSTALL & BUILD
 Write-Host "5. Installing Dependencies..." -ForegroundColor Yellow
 npm install
+npm list react
 
 Write-Host "6. Building Website..." -ForegroundColor Yellow
 npm run build
