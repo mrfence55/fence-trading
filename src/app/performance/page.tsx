@@ -3,6 +3,8 @@ import { PerformanceSummary } from "@/components/PerformanceSummary";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default function PerformancePage() {
     return (
         <div className="min-h-screen bg-background flex flex-col">
