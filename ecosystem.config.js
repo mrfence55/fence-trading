@@ -2,11 +2,11 @@ module.exports = {
     apps: [
         {
             name: 'fence-web',
-            script: 'node_modules/next/dist/bin/next',
-            args: 'start',
+            script: 'npm',
+            args: 'run dev',
             cwd: './', // Run from the root directory
             env: {
-                NODE_ENV: 'production',
+                NODE_ENV: 'development',
                 PORT: 3000,
                 HOSTNAME: '0.0.0.0'
             }

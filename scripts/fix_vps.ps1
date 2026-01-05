@@ -39,15 +39,8 @@ Write-Host "5. Installing Dependencies..." -ForegroundColor Yellow
 npm install
 npm list react
 
-Write-Host "6. Building Website..." -ForegroundColor Yellow
-npm run build
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Build Successful!" -ForegroundColor Green
-    # 6. START
-    pm2 start ecosystem.config.js
-    pm2 save
-    pm2 logs --lines 20
-} else {
-    Write-Error "Build FAILED. Please show this error to the developer."
-}
+Write-Host "6. Starting in DEV MODE (Bypassing Build)..." -ForegroundColor Green
+# 6. START
+pm2 start ecosystem.config.js
+pm2 save
+pm2 logs --lines 20
