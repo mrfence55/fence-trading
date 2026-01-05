@@ -6,14 +6,21 @@ Write-Host "1. Resetting Codebase..." -ForegroundColor Yellow
 git fetch --all
 git reset --hard origin/main
 
-# 2. PM2 STOP
+# 2. PM2 STOP & KILL PYTHON
 Write-Host "2. Stopping Processes..." -ForegroundColor Yellow
 pm2 delete all
+taskkill /F /IM python.exe /T 2>$null
+taskkill /F /IM node.exe /T 2>$null
+Start-Sleep -Seconds 3
 
 # 3. CLEANUP
 Write-Host "3. Cleaning up old files..." -ForegroundColor Yellow
-# Unblock DB
+# Unblock DB - VERIFY DELETE
 Remove-Item signals.db -Force -ErrorAction SilentlyContinue
+if (Test-Path "signals.db") {
+    Write-Warning "Could not delete signals.db. It might be locked. Attempting rename..."
+    Rename-Item signals.db "signals.db.old" -ErrorAction SilentlyContinue
+}
 # Remove bad env
 Remove-Item fenceWeb.env -Force -ErrorAction SilentlyContinue
 # Remove potentially corrupted node_modules (CRITICAL FOR CLEAN BUILD)
