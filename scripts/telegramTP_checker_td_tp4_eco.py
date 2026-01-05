@@ -278,7 +278,11 @@ CREATE INDEX IF NOT EXISTS idx_created ON signals(created_at);
 async def db_init():
     async with aiosqlite.connect(DB_PATH) as db:
         for stmt in CREATE_SQL.strip().split(";"):
-            if stmt.strip(): await db.execute(stmt)
+            if stmt.strip():
+                try:
+                    await db.execute(stmt)
+                except sqlite3.OperationalError:
+                    pass
         try:
             await db.execute("ALTER TABLE signals ADD COLUMN notified_hits INTEGER NOT NULL DEFAULT 0;")
         except sqlite3.OperationalError:
