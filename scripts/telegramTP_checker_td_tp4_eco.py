@@ -420,12 +420,13 @@ def _touch_map(side: str, sl: Optional[float], tp_list: List[Optional[float]], b
     return long_map if side == "long" else short_map
 
 def hit_seq_for_interval(symbol: str, side: str, sl: Optional[float], tps: List[Optional[float]],
-                         ohlcv: List[List], hits_before: int) -> Tuple[int, bool, bool]:
+                         ohlcv: List[List], hits_before: int) -> Tuple[int, int, bool, bool]:
     hits = hits_before
     buf  = _buf_for(symbol)
     mapper = _touch_map(side, sl, tps, buf)
+    last_hit_ts = 0
 
-    for _, _o, h, l, _c, _v in ohlcv:
+    for ts, _o, h, l, _c, _v in ohlcv:
         touch = mapper(h, l)
 
         # which next TP is newly reachable, sequentially
@@ -438,17 +439,20 @@ def hit_seq_for_interval(symbol: str, side: str, sl: Optional[float], tps: List[
         # same-candle SL + next TP -> TP wins
         if touch["sl"] and next_tp is not None:
             hits = max(hits, next_tp)
+            last_hit_ts = int(ts)
             continue
 
         if touch["sl"]:
             special = (hits >= 1 and (tps[1] is None or hits < 2))
-            return hits, True, special
+            # If SL hit, use this candle TS
+            return hits, int(ts), True, special
 
         if next_tp is not None:
             hits = max(hits, next_tp)
+            last_hit_ts = int(ts)
             continue
 
-    return hits, False, False
+    return hits, last_hit_ts, False, False
 
 async def recompute_hits_full(symbol: str, side: str, sl: Optional[float], tps: List[Optional[float]],
                               anchor_ms: int) -> int:
@@ -550,8 +554,11 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         return
 
     hits_before = int(r["hits"])
-    hits_done, sl_hit, special = hit_seq_for_interval(symbol, side, sl, tps, ohlcv, hits_before)
+    hits_done, hit_ts, sl_hit, special = hit_seq_for_interval(symbol, side, sl, tps, ohlcv, hits_before)
     new_hits = max(hits_before, hits_done)
+
+    # Use historical hit time if available and valid
+    update_ts = hit_ts if (hit_ts and hit_ts > 0) else int(time.time())
 
     # --- SL protection: confirm with a full recompute before announcing ---
     if sl_hit:
@@ -559,14 +566,14 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         # if full recompute shows TP≥1 at any time, we suppress SL announcement
         if full_hits >= 1:
             await update_signal(rec_id,
-                                last_check_ts=int(time.time()),
+                                last_check_ts=update_ts,
                                 hits=max(new_hits, full_hits),
                                 status="closed",
                                 close_reason=f"TP{max(new_hits, full_hits)}_hit_then_SL_ignored")
             return
 
     # DB updates
-    updates = {"last_check_ts": int(time.time()), "hits": new_hits}
+    updates = {"last_check_ts": update_ts, "hits": new_hits}
     closed = False; reason = None
     if sl_hit:
         closed = True; reason = "SL_hit" if not special else "SL_after_TP1_before_TP2"
