@@ -21,6 +21,7 @@ API_ID   = 27308955
 API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 
 # Source Channels and their Targets
+CHANNELS_CONFIG = {
     -1002154812244: {"alias": "Fence - Aurora",   "target_id": -1003369420967, "type": "GOLD"},  # The Gold Complex -> Fence Aurora
     -1001220837618: {"alias": "Fence - Odin",     "target_id": -1003396317717, "type": "FOREX"}, # TFXC PREMIUM -> Fence Odin
     -1001239815745: {"alias": "Fence - Main",     "target_id": -1003330700210, "type": "FOREX"}, # Fredtrading -> Fence Main
