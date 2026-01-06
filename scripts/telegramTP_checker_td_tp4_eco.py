@@ -26,7 +26,7 @@ CHANNELS_CONFIG = {
     -1001220837618: {"alias": "Fence - Odin",     "target_id": -1003396317717, "type": "FOREX"}, # TFXC PREMIUM -> Fence Odin
     -1001239815745: {"alias": "Fence - Main",     "target_id": -1003330700210, "type": "FOREX"}, # Fredtrading -> Fence Main
     -1002208969496: {"alias": "Fence - Crypto",   "target_id": -1003368566412, "type": "CRYPTO"},# Fred Crypto -> Fence Crypto
-    -1001979286278: {"alias": "Fence - Live",     "target_id": -1003437413343, "type": "INDICES"},# Fred Live -> Fence Live
+    -1001979286278: {"alias": "Fence - Live / Indices", "target_id": -1003437413343, "type": "INDICES"},# Fred Live -> Fence Live
     -1002309276824: {"alias": "Fence - Test",     "target_id": -1002083880162, "type": "FOREX"} # Test Channel
 }
 TARGET_CHAT_IDS = list(CHANNELS_CONFIG.keys())
