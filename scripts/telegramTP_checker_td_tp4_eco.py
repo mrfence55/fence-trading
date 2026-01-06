@@ -460,7 +460,7 @@ async def recompute_hits_full(symbol: str, side: str, sl: Optional[float], tps: 
                               anchor_ms: int) -> int:
     """One-off, full recompute from anchor to now (used to confirm before announcing SL)."""
     ohlcv = await td_time_series_1m(symbol, anchor_ms)
-    hits, _, _ = hit_seq_for_interval(symbol, side, sl, tps, ohlcv, 0)
+    hits, _, _, _ = hit_seq_for_interval(symbol, side, sl, tps, ohlcv, 0)
     return hits
 
 # ---------- Telegram wiring ----------
