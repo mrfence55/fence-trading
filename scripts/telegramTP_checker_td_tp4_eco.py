@@ -21,13 +21,12 @@ API_ID   = 27308955
 API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 
 # Source Channels and their Targets
-CHANNELS_CONFIG = {
-    -1002154812244: {"alias": "Aurora (Gold)",   "target_id": -1003369420967, "type": "GOLD"},  # The Gold Complex
-    -1001220837618: {"alias": "Odin",            "target_id": -1003396317717, "type": "FOREX"},  # TFXC PREMIUM
-    -1001239815745: {"alias": "Fence Trading",   "target_id": -1003330700210, "type": "FOREX"},  # Fredtrading -> Fence Trading
-    -1002208969496: {"alias": "Fence Crypto",    "target_id": -1003368566412, "type": "CRYPTO"},
-    -1001979286278: {"alias": "Fence Live",      "target_id": -1003437413343, "type": "INDICES"},
-    -1002309276824: {"alias": "Fence Free (Test)", "target_id": -1002083880162, "type": "FOREX"} # Test Channel -> Fence Trading
+    -1002154812244: {"alias": "Fence - Aurora",   "target_id": -1003369420967, "type": "GOLD"},  # The Gold Complex -> Fence Aurora
+    -1001220837618: {"alias": "Fence - Odin",     "target_id": -1003396317717, "type": "FOREX"}, # TFXC PREMIUM -> Fence Odin
+    -1001239815745: {"alias": "Fence - Main",     "target_id": -1003330700210, "type": "FOREX"}, # Fredtrading -> Fence Main
+    -1002208969496: {"alias": "Fence - Crypto",   "target_id": -1003368566412, "type": "CRYPTO"},# Fred Crypto -> Fence Crypto
+    -1001979286278: {"alias": "Fence - Live",     "target_id": -1003437413343, "type": "INDICES"},# Fred Live -> Fence Live
+    -1002309276824: {"alias": "Fence - Test",     "target_id": -1002083880162, "type": "FOREX"} # Test Channel
 }
 TARGET_CHAT_IDS = list(CHANNELS_CONFIG.keys())
 
