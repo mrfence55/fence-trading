@@ -82,7 +82,7 @@ SESSION_STRING_PATH = "tg_session.txt"
 DB_PATH = "signals.db"
 
 MAX_SIGNAL_AGE_DAYS = 5
-WARM_START_SKIP_BACKFILL = True
+WARM_START_SKIP_BACKFILL = False
 
 # Website API Config
 WEBSITE_API_URL = "http://localhost:3000/api/signals" # Localhost on VPS
