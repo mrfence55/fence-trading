@@ -726,7 +726,8 @@ async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[L
     out: Dict[str, List[List]] = {}
     for sym, since_ms in mins.items():
         out[sym] = await td_time_series_1m(sym, since_ms)
-        await asyncio.sleep(0.2)
+        print(f"DEBUG: Throttling API... sleeping 8s (Symbol: {sym})")
+        await asyncio.sleep(8) # Throttle for API limits (Strict 8/min)
     return out
 
 # ---------- Listeners ----------
@@ -1097,6 +1098,7 @@ async def main():
     await client.start()
     with open(SESSION_STRING_PATH, "w") as f:
         f.write(client.session.save())
+    print(f"Fence Bot v2.3 - Started. Watching {len(TARGET_CHAT_IDS)} channels... (FIXED UNPACK + 8s Throttle)")
     print("TD watcher (økonomi + SL double-check + warm-start) kjører…")
     await asyncio.gather(
         checker_loop(),
