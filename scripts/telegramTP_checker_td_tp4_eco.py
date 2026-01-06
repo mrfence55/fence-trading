@@ -26,8 +26,7 @@ CHANNELS_CONFIG = {
     -1001220837618: {"alias": "Fence - Odin",     "target_id": -1003396317717, "type": "FOREX"}, # TFXC PREMIUM -> Fence Odin
     -1001239815745: {"alias": "Fence - Main",     "target_id": -1003330700210, "type": "FOREX"}, # Fredtrading -> Fence Main
     -1002208969496: {"alias": "Fence - Crypto",   "target_id": -1003368566412, "type": "CRYPTO"},# Fred Crypto -> Fence Crypto
-    -1001979286278: {"alias": "Fence - Live / Indices", "target_id": -1003437413343, "type": "INDICES"},# Fred Live -> Fence Live
-    -1002309276824: {"alias": "Fence - Test",     "target_id": -1002083880162, "type": "FOREX"} # Test Channel
+    -1001979286278: {"alias": "Fence - Live / Indices", "target_id": -1003437413343, "type": "INDICES"} # Fred Live -> Fence Live / Indices
 }
 TARGET_CHAT_IDS = list(CHANNELS_CONFIG.keys())
 
@@ -277,12 +276,15 @@ CREATE INDEX IF NOT EXISTS idx_created ON signals(created_at);
 
 async def db_init():
     async with aiosqlite.connect(DB_PATH) as db:
+        # 1. Run CREATE_SQL (Ignore errors if table/index exists)
         for stmt in CREATE_SQL.strip().split(";"):
             if stmt.strip():
                 try:
                     await db.execute(stmt)
                 except sqlite3.OperationalError:
                     pass
+
+        # 2. Add Columns if missing
         try:
             await db.execute("ALTER TABLE signals ADD COLUMN notified_hits INTEGER NOT NULL DEFAULT 0;")
         except sqlite3.OperationalError:
