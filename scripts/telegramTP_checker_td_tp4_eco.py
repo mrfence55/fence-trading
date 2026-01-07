@@ -1053,6 +1053,18 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             else:
                 print(f"DEBUG: [ReplyHandler] No target chat ID for signal {rec_id} ({symbol}). Cannot reply.")
 
+        # 4. FINAL DB COMMIT (The Missing Link)
+        if updates:
+            set_clauses = [f"{k} = ?" for k in updates.keys()]
+            sql = f"UPDATE signals SET {', '.join(set_clauses)} WHERE id = ?"
+            vals = list(updates.values()) + [rec_id]
+            
+            try:
+                await db.execute(sql, vals)
+                await db.commit()
+                print(f"DEBUG: [ReplyHandler] DB PERSISTED: {symbol} -> {updates}")
+            except Exception as e:
+                print(f"DEBUG: [ReplyHandler] DB SAVE ERROR: {e}")
 
 # ---------- Loop ----------
 async def checker_loop():
