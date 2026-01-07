@@ -789,7 +789,7 @@ async def on_new_signal(evt: events.NewMessage.Event):
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT id FROM signals WHERE symbol=? AND side=? AND created_at >= ?",
-            (parsed['symbol'], parsed['side'], msg_ts - (20 * 60))
+            (parsed['symbol'], parsed['side'], msg_ts - (5 * 60))
         ) as cursor:
             existing_row = await cursor.fetchone()
             if existing_row:
