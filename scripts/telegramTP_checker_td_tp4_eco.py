@@ -161,7 +161,6 @@ SIG_RX_SIMPLE_IMPLICIT = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
     r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
     r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
-    r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)',
     re.IGNORECASE | re.DOTALL
 )
