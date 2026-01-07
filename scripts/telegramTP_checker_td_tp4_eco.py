@@ -161,7 +161,18 @@ SIG_RX_SIMPLE_IMPLICIT = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
     r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
     r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
+    r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)',
+    re.IGNORECASE | re.DOTALL
+)
+SIG_RX_IMPLICIT_ENTRY = re.compile(
+    r'(?P<side_word>BUY|SELL)\s+'
+    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
+    r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
+    r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
+    r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
+    r'(?:.*?(?:tp3|tp\s*3|take\s*profit\s*3)[:=\s]*?(?P<tp3>[-+]?\d*[\,\.]?\d+))?'
+    r'(?:.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+))?',
     re.IGNORECASE | re.DOTALL
 )
 
@@ -215,8 +226,15 @@ def parse_signal_text(text: str) -> Optional[Dict[str, Any]]:
                     sym = _normalize_symbol(d["symbol"])
                 else:
                     m = SIG_RX_SIMPLE_IMPLICIT.search(cleaned)
-                    if not m: return None
-                    d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
+                    if m:
+                        d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
+                    else:
+                        # NEW: Try implicit entry (Action Symbol Price)
+                        m = SIG_RX_IMPLICIT_ENTRY.search(cleaned)
+                        if not m: return None
+                        d = m.groupdict()
+                        side = "long" if d["side_word"].lower()=="buy" else "short"
+                        sym = _normalize_symbol(d["symbol"])
 
     if not sym.strip(): return None
     try:
