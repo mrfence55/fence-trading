@@ -9,7 +9,7 @@ load_dotenv()
 
 # Import the actual bot logic to test exact behavior
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from telegramTP_checker_td_tp4_eco import td_time_series_1m, hit_seq_for_interval, TD_API_KEY
+from telegramTP_checker_td_tp4_eco import td_time_series_1m, hit_seq_for_interval, TD_KEY as TD_API_KEY
 
 async def debug_gbpnzd():
     symbol = "GBPNZD"

@@ -1076,7 +1076,8 @@ async def checker_loop():
             now = datetime.now(tz=timezone.utc)
             next_min = datetime(now.year, now.month, now.day, now.hour, now.minute, tzinfo=timezone.utc) + timedelta(minutes=1)
             sleep_edge = (next_min - now).total_seconds() + 2
-            await asyncio.sleep(max(sleep_edge, CHECK_EVERY_SECONDS_BASE))
+            final_sleep = max(10, max(sleep_edge, CHECK_EVERY_SECONDS_BASE)) # Ensure at least 10s
+            await asyncio.sleep(min(final_sleep, 3600)) # Cap at 1 hour to prevent overflow
 
         except RuntimeError as e:
             if "TD_OUT_OF_CREDITS" in str(e):
