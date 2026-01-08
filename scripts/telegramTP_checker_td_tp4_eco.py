@@ -553,11 +553,11 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
     symbol  = r["symbol"]
     side    = r["side"]
     sl      = r["sl"] if r["sl"] is not None else None
-    tps     = [r["tp1"], r["tp2"], r["tp3"], r.get("tp4")]
+    tps     = [r["tp1"], r["tp2"], r["tp3"], r["tp4"]]
 
     # robust timestamps
-    anchor_ms = int((r.get("anchor_ts") or r.get("created_at") or int(time.time()))) * 1000
-    last_ms   = int((r.get("last_check_ts") or r.get("created_at") or int(time.time()))) * 1000
+    anchor_ms = int((r["anchor_ts"] or r["created_at"] or int(time.time()))) * 1000
+    last_ms   = int((r["last_check_ts"] or r["created_at"] or int(time.time()))) * 1000
 
     # only when a new 1m candle started
     now_dt = datetime.now(tz=timezone.utc)
@@ -641,7 +641,7 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if sl_hit:
         text = "❌ SL Hit."
-        if r.get("target_chat_id") and r.get("target_msg_id"):
+        if r["target_chat_id"] and r["target_msg_id"]:
             await reply_status(r["target_chat_id"], r["target_msg_id"], text)
         ANNOUNCED_LAST_TS[rec_id] = now_s # Changed from ANNOUNCED_SL_HIT to ANNOUNCED_LAST_TS to match original logic
         
@@ -657,7 +657,7 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         
         # Get Alias
         config = CHANNELS_CONFIG.get(r["chat_id"])
-        channel_name = config["alias"] if config else r.get("chat_title", "Unknown")
+        channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
 
         await send_to_website({
             "symbol": symbol,
@@ -677,8 +677,8 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if new_hits > hits_before and _may_send(new_hits):
         text = f"✅ {fmt_hits(new_hits)} truffet.\n#{symbol}"
-        target_chat_id = r.get("target_chat_id")
-        target_msg_id = r.get("target_msg_id")
+        target_chat_id = r["target_chat_id"]
+        target_msg_id = r["target_msg_id"]
 
         if target_chat_id:
             print(f"DEBUG: [Watcher] Hit TP{new_hits} for {symbol}. Sending to {target_chat_id} (Thread: {target_msg_id})")
@@ -701,7 +701,7 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
         
         # Get Alias
         config = CHANNELS_CONFIG.get(r["chat_id"])
-        channel_name = config["alias"] if config else r.get("chat_title", "Unknown")
+        channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
 
         await send_to_website({
             "symbol": symbol,
@@ -721,7 +721,7 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if closed and not sl_hit and new_hits >= 4 and _may_send(new_hits):
         text = "🎯 TP4 truffet — ferdig!"
-        if r.get("target_chat_id") and r.get("target_msg_id"):
+        if r["target_chat_id"] and r["target_msg_id"]:
             await reply_status(r["target_chat_id"], r["target_msg_id"], text)
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
@@ -735,8 +735,8 @@ async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[L
         sym = r["symbol"]
         if not sym or sym.strip() == "": continue
         if not td_map_symbol(sym): continue
-        anchor_ms = int((r.get("anchor_ts") or r["created_at"])) * 1000
-        last_ms   = int((r.get("last_check_ts") or r["created_at"])) * 1000
+        anchor_ms = int((r["anchor_ts"] or r["created_at"])) * 1000
+        last_ms   = int((r["last_check_ts"] or r["created_at"])) * 1000
         since_ms  = max(anchor_ms, last_ms - 60_000)
         mins[sym] = min(mins.get(sym, since_ms), since_ms)
 
@@ -943,7 +943,7 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             if new_hits == 1: tp_value = float(r["tp1"])
             elif new_hits == 2: tp_value = float(r["tp2"])
             elif new_hits == 3: tp_value = float(r["tp3"])
-            elif new_hits == 4 and r.get("tp4"): tp_value = float(r["tp4"])
+            elif new_hits == 4 and r["tp4"]: tp_value = float(r["tp4"])
             
             risk_pips = abs(entry - sl)
             reward_pips = abs(tp_value - entry) if tp_value else 0
@@ -968,7 +968,7 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 "rr_ratio": rr_ratio,
                 "profit": profit,
                 "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat(),
-                "fingerprint": r.get("fingerprint")
+                "fingerprint": r["fingerprint"]
             })
             print(f"Telegram Update: {symbol} TP{new_hits} Hit! RR: {rr_ratio}R (${profit})")
             
