@@ -863,7 +863,9 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
     """
     Parses a reply message to check for TP/SL hits and updates the signal.
     """
-    text = msg.message.lower()
+    # Robust text extraction (Handles Photos with Captions)
+    raw_text = msg.text or ""
+    text = raw_text.lower()
     
     # 1. Identify the update type
     new_hits = None
@@ -890,13 +892,8 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
     if new_hits is None and status is None:
         return # Not a relevant update
 
-    # 1.5 Check if reply is actually a NEW signal for a DIFFERENT symbol
-    # (e.g. Admin replies "Buy Gold" to a USDJPY signal)
-    potential_new_sig = parse_signal_text(msg.message)
-    if potential_new_sig:
-        # We need to know the original signal's symbol to compare.
-        # We can fetch it first.
-        pass # Will do it after fetching 'r'
+    # 1.5 Parse potential new signal (ignore if found)
+    potential_new_sig = parse_signal_text(raw_text)
 
     # 2. Find the original signal in DB
     async with aiosqlite.connect(DB_PATH) as db:
@@ -922,9 +919,16 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
         rec_id = r['id']
         symbol = r['symbol']
         side = r['side']
+        target_chat_id = r['target_chat_id']
+        target_msg_id = r['target_msg_id']
         
         updates = {}
         
+        # Variables for the reply message
+        rr_ratio = None
+        profit = None
+        reply_action_text = None
+
         # Handle TP Hit
         if new_hits is not None and new_hits > current_hits:
             updates['hits'] = new_hits
@@ -936,24 +940,17 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             tp_value = None
             
             # Get the TP level that was hit
-            if new_hits == 1:
-                tp_value = float(r["tp1"])
-            elif new_hits == 2:
-                tp_value = float(r["tp2"])
-            elif new_hits == 3:
-                tp_value = float(r["tp3"])
-            elif new_hits == 4 and r.get("tp4"):
-                tp_value = float(r["tp4"])
+            if new_hits == 1: tp_value = float(r["tp1"])
+            elif new_hits == 2: tp_value = float(r["tp2"])
+            elif new_hits == 3: tp_value = float(r["tp3"])
+            elif new_hits == 4 and r.get("tp4"): tp_value = float(r["tp4"])
             
-            # Calculate RR
             risk_pips = abs(entry - sl)
             reward_pips = abs(tp_value - entry) if tp_value else 0
             rr_ratio = round(reward_pips / risk_pips, 2) if risk_pips > 0 else 0
-            
-            # Profit calculation: Assuming 1% risk per trade, profit = RR * 1000
             profit = round(rr_ratio * 1000, 2)
             
-            # Get Alias
+            # Prepare Website Update
             config = CHANNELS_CONFIG.get(r["chat_id"])
             channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
 
@@ -974,8 +971,12 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 "fingerprint": r.get("fingerprint")
             })
             print(f"Telegram Update: {symbol} TP{new_hits} Hit! RR: {rr_ratio}R (${profit})")
+            
+            # Set Reply Text
+            emoji = "✅" * new_hits
+            reply_action_text = f"{emoji} **TP{new_hits} HIT**"
 
-        # Handle Breakeven (Website Only, Keep Open In DB)
+        # Handle Breakeven
         elif status == "BREAKEVEN":
             # Get Alias
             config = CHANNELS_CONFIG.get(r["chat_id"])
@@ -995,12 +996,8 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 "profit": 0, # Explicit $0
                 "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
             })
-            print(f"Telegram Update: {symbol} Moved to BREAKEVEN - Logged to website")
-            
-            if r['target_chat_id'] and r['target_msg_id']:
-                 try:
-                     await reply_status(r['target_chat_id'], r['target_msg_id'], f"🛡️ **Breakeven** (Entry Secured)\n#{symbol}")
-                 except: pass
+            print(f"Telegram Update: {symbol} Moved to BREAKEVEN")
+            reply_action_text = "🛡️ **Breakeven** (Entry Secured)"
 
         # Handle SL/Close
         elif status:
@@ -1029,46 +1026,37 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                     "profit": -1000,
                     "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
                 })
-                print(f"Telegram Update: {symbol} SL HIT (Pure Loss) - Logged to website")
+                print(f"Telegram Update: {symbol} SL HIT (Pure Loss)")
+                reply_action_text = "❌ **SL HIT**"
             elif status == "SL_HIT" and current_hits > 0:
-                print(f"Telegram Update: {symbol} SL HIT after TP{current_hits} - NOT logged (partial win)")
+                print(f"Telegram Update: {symbol} SL HIT after TP{current_hits} (Partial Win)")
+                reply_action_text = "⚠️ **SL Hit** (Stopped out in profit)"
             else:
                 print(f"Telegram Update: {symbol} {status}!")
+                reply_action_text = f"🔒 **{status.replace('_', ' ').title()}**"
 
-        if updates or (new_hits and new_hits > current_hits):
+        # 4. Update DB and Reply TO TARGET
+        if updates or reply_action_text:
             if updates:
                 await update_signal(rec_id, **updates)
             
-            # Update the Target Channel (Reply Thread)
-            target_chat_id = r['target_chat_id']
-            target_msg_id = r['target_msg_id']
-            
-            if target_chat_id:
-                update_msg = ""
-                if new_hits:
-                    try:
-                        p_line = f"\n{rr_ratio}R - +${profit}" if ('profit' in locals() or 'profit' in globals()) else ""
-                        update_msg = f"✅ **TP{new_hits} HIT!** 🚀{p_line}\n#{symbol}"
-                    except:
-                        update_msg = f"✅ **TP{new_hits} HIT!** 🚀\n#{symbol}"
-
-                elif status == "SL_HIT":
-                    update_msg = f"❌ **SL HIT**\n#{symbol}"
-                elif status == "closed":
-                    update_msg = f"🔒 **CLOSED**\n#{symbol}"
+            if target_chat_id and reply_action_text:
+                # Construct the specific reply message
+                final_msg = f"{reply_action_text}\n#{symbol}"
+                if profit is not None and profit > 0:
+                    final_msg += f"\n💰 +${profit} ({rr_ratio}R)"
                 
-                if update_msg:
-                    print(f"DEBUG: [ReplyHandler] Attempting reply to {target_chat_id} (Thread: {target_msg_id})...")
-                    try:
-                        if target_msg_id:
-                            await client.send_message(target_chat_id, update_msg, reply_to=target_msg_id)
-                        else:
-                            await client.send_message(target_chat_id, update_msg)
-                        print(f"DEBUG: [ReplyHandler] Success: {update_msg.replace(chr(10), ' ')}")
-                    except Exception as e:
-                        print(f"DEBUG: [ReplyHandler] ERROR: {e}")
+                print(f"DEBUG: [ReplyHandler] Replying to {target_chat_id} (Msg: {target_msg_id})...")
+                try:
+                    if target_msg_id:
+                        await client.send_message(target_chat_id, final_msg, reply_to=target_msg_id)
+                    else:
+                        await client.send_message(target_chat_id, final_msg) # Fallback
+                    print(f"DEBUG: [ReplyHandler] Success: {final_msg.replace(chr(10), ' ')}")
+                except Exception as e:
+                    print(f"DEBUG: [ReplyHandler] Send Error: {e}")
             else:
-                print(f"DEBUG: [ReplyHandler] No target chat ID for signal {rec_id} ({symbol}). Cannot reply.")
+                print(f"DEBUG: [ReplyHandler] No target chat ID or reply text for signal {rec_id} ({symbol}). Cannot reply.")
 
         # 4. FINAL DB COMMIT (The Missing Link)
         if updates:
