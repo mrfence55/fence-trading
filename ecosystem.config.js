@@ -13,7 +13,7 @@ module.exports = {
         },
         {
             name: 'fence-bot',
-            script: 'scripts/telegramTP_checker_td_tp4_eco.py',
+            script: 'scripts/fence_relay_v3.py',
             interpreter: process.platform === 'win32' ? 'python' : 'python3', // 'python' on Windows, 'python3' on Mac/Linux
             cwd: './',
             restart_delay: 5000, // Wait 5s before restarting if it crashes
