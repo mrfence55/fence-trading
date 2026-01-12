@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { SignalTable, Signal } from "@/components/SignalTable";
 // import { PerformanceStats } from "@/components/PerformanceStats";
