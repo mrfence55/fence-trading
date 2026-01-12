@@ -102,30 +102,81 @@ async def scrape_trade_nation_registrations() -> list[dict]:
             await page.wait_for_url("**/partner/**", timeout=120000)
             logger.info("Login successful")
             
-            # Navigate to Registrations Report - go directly to URL (faster)
+            # Navigate to Registrations Report
             logger.info("Navigating to Registrations Report...")
             await page.goto("https://go.tradenation.com/partner/reports/registration", timeout=120000)
             
             # Wait for page to load
-            await page.wait_for_timeout(5000)
+            await page.wait_for_timeout(3000)
             
-            # Click Run Report if the button exists
+            # Select Custom date range
+            logger.info("Setting Custom date range...")
             try:
-                run_btn = await page.query_selector("button:has-text('Run Report')")
+                # Click on the date range dropdown (shows "Month to Date" or similar)
+                dropdown = await page.query_selector("text=Month to Date")
+                if not dropdown:
+                    dropdown = await page.query_selector("text=Custom")
+                if dropdown:
+                    await dropdown.click()
+                    await page.wait_for_timeout(1000)
+                    
+                    # Click on "Custom" option
+                    custom_option = await page.query_selector("text=Custom")
+                    if custom_option:
+                        await custom_option.click()
+                        await page.wait_for_timeout(1000)
+            except Exception as e:
+                logger.warning(f"Could not set dropdown: {e}")
+            
+            # Set start date to 01/01/2022 for full history
+            logger.info("Setting start date to 01/01/2022...")
+            try:
+                # Find start date input and clear/fill it
+                date_inputs = await page.query_selector_all("input[type='text']")
+                if len(date_inputs) >= 1:
+                    start_input = date_inputs[0]
+                    await start_input.click()
+                    await page.wait_for_timeout(500)
+                    # Clear and type new date
+                    await start_input.fill("01/01/2022")
+                    await page.keyboard.press("Escape")
+                    await page.wait_for_timeout(500)
+            except Exception as e:
+                logger.warning(f"Could not set start date: {e}")
+            
+            # Click Run Report button
+            logger.info("Clicking Run Report...")
+            try:
+                run_btn = await page.wait_for_selector("button:has-text('Run Report')", timeout=10000)
                 if run_btn:
                     await run_btn.click()
-                    await page.wait_for_timeout(5000)
-            except:
-                pass
+                    logger.info("Waiting for report to load...")
+                    await page.wait_for_timeout(10000)  # Give time for report to generate
+            except Exception as e:
+                logger.warning(f"Could not click Run Report: {e}")
             
-            # Wait for table data
-            await page.wait_for_selector("table tbody tr", timeout=120000)
+            # Take screenshot to debug
+            await page.screenshot(path=os.path.join(script_dir, "tn_after_run_report.png"))
+            
+            # Wait for table data to appear
+            logger.info("Waiting for table data...")
+            try:
+                await page.wait_for_selector("table tbody tr", timeout=60000)
+            except:
+                logger.warning("Table not found with tbody tr, trying alternative...")
+                # Try scrolling in case data is lazy loaded
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(3000)
             
             # Take debug screenshot
             await page.screenshot(path=os.path.join(script_dir, "tn_report_page.png"))
             
-            # Extract data
+            # Extract data from table
             rows = await page.query_selector_all("table tbody tr")
+            if not rows:
+                # Try alternative selector
+                rows = await page.query_selector_all("tr")
+            
             logger.info(f"Found {len(rows)} rows in report")
             
             for row in rows:
@@ -134,7 +185,11 @@ async def scrape_trade_nation_registrations() -> list[dict]:
                     user_id = await cols[0].inner_text()
                     reg_date = await cols[1].inner_text()
                     country = await cols[2].inner_text()
-                    name = await cols[-1].inner_text()
+                    name = await cols[-1].inner_text()  # Last column is customer name
+                    
+                    # Skip header rows
+                    if "User ID" in user_id or not user_id.strip():
+                        continue
                     
                     registrations.append({
                         "user_id": user_id.strip(),
@@ -147,7 +202,10 @@ async def scrape_trade_nation_registrations() -> list[dict]:
             
         except Exception as e:
             logger.error(f"Error scraping Trade Nation: {e}")
-            await page.screenshot(path=os.path.join(script_dir, "tn_error.png"))
+            try:
+                await page.screenshot(path=os.path.join(script_dir, "tn_error.png"))
+            except:
+                pass
         finally:
             await browser.close()
     
