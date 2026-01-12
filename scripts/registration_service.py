@@ -516,15 +516,22 @@ Trading involves risk. Please trade responsibly.
         p_name = pending_name.lower().strip()
         t_name = tn_name.lower().strip()
         
+        # Debug log
+        logger.debug(f"Comparing: pending='{p_name}' vs tn='{t_name}'")
+        
         # Exact match
         if p_name == t_name:
+            logger.info(f"EXACT MATCH: '{p_name}' == '{t_name}'")
             return True
         
         # Handle "First Last" vs "Last, First"
         p_parts = set(p_name.replace(",", "").split())
         t_parts = set(t_name.replace(",", "").split())
         
+        logger.debug(f"Parts: pending={p_parts} vs tn={t_parts}")
+        
         if p_parts == t_parts:
+            logger.info(f"PARTS MATCH: {p_parts}")
             return True
         
         # Check if one is substring of other (handles middle names)
@@ -534,8 +541,10 @@ Trading involves risk. Please trade responsibly.
             p_last = max(p_parts, key=lambda x: p_name.find(x))
             
             if p_first in t_parts and p_last in t_parts:
+                logger.info(f"PARTIAL MATCH: first='{p_first}' last='{p_last}'")
                 return True
         
+        logger.debug(f"NO MATCH: '{pending_name}' vs '{tn_name}'")
         return False
     
     def find_matching_pending(
