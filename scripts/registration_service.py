@@ -146,6 +146,26 @@ class RegistrationService:
                 )
             """)
             
+            # Migration: Add missing columns to existing tables
+            # This handles databases created before these columns were added
+            try:
+                cursor.execute("ALTER TABLE affiliates ADD COLUMN discord_user_id TEXT")
+                logger.info("Added discord_user_id column to affiliates")
+            except:
+                pass  # Column already exists
+            
+            try:
+                cursor.execute("ALTER TABLE affiliates ADD COLUMN telegram_links_sent TEXT")
+                logger.info("Added telegram_links_sent column to affiliates")
+            except:
+                pass  # Column already exists
+            
+            try:
+                cursor.execute("ALTER TABLE pending_requests ADD COLUMN discord_user_id TEXT")
+                logger.info("Added discord_user_id column to pending_requests")
+            except:
+                pass  # Column already exists
+            
             conn.commit()
             logger.info("Database tables ensured")
     
