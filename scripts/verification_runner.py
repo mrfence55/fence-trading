@@ -109,40 +109,61 @@ async def scrape_trade_nation_registrations() -> list[dict]:
             # Wait for page to load
             await page.wait_for_timeout(3000)
             
-            # Select Custom date range
-            logger.info("Setting Custom date range...")
+            # Set start date using calendar picker
+            logger.info("Setting start date via calendar picker...")
             try:
-                # Click on the date range dropdown (shows "Month to Date" or similar)
-                dropdown = await page.query_selector("text=Month to Date")
-                if not dropdown:
-                    dropdown = await page.query_selector("text=Custom")
-                if dropdown:
-                    await dropdown.click()
+                # Click on the FIRST date input field (start date)
+                # The input shows something like "01/01/2026"
+                date_inputs = await page.query_selector_all("input")
+                start_date_input = None
+                for inp in date_inputs:
+                    val = await inp.get_attribute("value")
+                    if val and "/" in val:
+                        start_date_input = inp
+                        break
+                
+                if start_date_input:
+                    await start_date_input.click()
                     await page.wait_for_timeout(1000)
                     
-                    # Click on "Custom" option
-                    custom_option = await page.query_selector("text=Custom")
-                    if custom_option:
-                        await custom_option.click()
-                        await page.wait_for_timeout(1000)
-            except Exception as e:
-                logger.warning(f"Could not set dropdown: {e}")
-            
-            # Set start date to 01/01/2022 for full history
-            logger.info("Setting start date to 01/01/2022...")
-            try:
-                # Find start date input and clear/fill it
-                date_inputs = await page.query_selector_all("input[type='text']")
-                if len(date_inputs) >= 1:
-                    start_input = date_inputs[0]
-                    await start_input.click()
-                    await page.wait_for_timeout(500)
-                    # Clear and type new date
-                    await start_input.fill("01/01/2022")
+                    # Take screenshot of calendar popup
+                    await page.screenshot(path=os.path.join(script_dir, "tn_calendar_popup.png"))
+                    
+                    # Click on the year dropdown (shows "2026" or current year)
+                    # The year is in a dropdown/select element
+                    year_selector = await page.query_selector("select")  # Try select element
+                    if not year_selector:
+                        # Or it might be a clickable span/div showing the year
+                        year_selector = await page.query_selector("text=2026")
+                        if not year_selector:
+                            year_selector = await page.query_selector("text=2025")
+                    
+                    if year_selector:
+                        await year_selector.click()
+                        await page.wait_for_timeout(500)
+                        
+                        # Click on "2022" in the year list
+                        year_2022 = await page.query_selector("text=2022")
+                        if year_2022:
+                            await year_2022.click()
+                            await page.wait_for_timeout(500)
+                            logger.info("Selected year 2022")
+                    
+                    # Click on day "1" to select January 1st
+                    day_1 = await page.query_selector("text=1")
+                    if day_1:
+                        await day_1.click()
+                        await page.wait_for_timeout(500)
+                        logger.info("Selected day 1")
+                    
+                    # Click outside to close calendar or press Escape
                     await page.keyboard.press("Escape")
                     await page.wait_for_timeout(500)
+                    
             except Exception as e:
-                logger.warning(f"Could not set start date: {e}")
+                logger.warning(f"Could not set start date via calendar: {e}")
+                # Take error screenshot
+                await page.screenshot(path=os.path.join(script_dir, "tn_date_error.png"))
             
             # Click Run Report button
             logger.info("Clicking Run Report...")
@@ -151,7 +172,7 @@ async def scrape_trade_nation_registrations() -> list[dict]:
                 if run_btn:
                     await run_btn.click()
                     logger.info("Waiting for report to load...")
-                    await page.wait_for_timeout(10000)  # Give time for report to generate
+                    await page.wait_for_timeout(15000)  # Give more time for report to generate
             except Exception as e:
                 logger.warning(f"Could not click Run Report: {e}")
             
