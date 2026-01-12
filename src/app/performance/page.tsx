@@ -1,11 +1,46 @@
-import { SignalTable } from "@/components/SignalTable";
-import { PerformanceSummary } from "@/components/PerformanceSummary";
+"use client";
+
+import { useEffect, useState } from "react";
+import { SignalTable, Signal } from "@/components/SignalTable";
+import { PerformanceStats } from "@/components/PerformanceStats";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { PerformanceSummary } from "@/components/PerformanceSummary";
 
 export const dynamic = "force-dynamic";
 
 export default function PerformancePage() {
+    const [signals, setSignals] = useState<Signal[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeChannel, setActiveChannel] = useState<string>("Fence - Aurora");
+
+    useEffect(() => {
+        async function fetchSignals() {
+            try {
+                const res = await fetch("/api/signals");
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    // Global Date Filter: Only signals from Jan 12, 2026 onwards
+                    // 12.01.2026 -> 2026-01-12
+                    const recentSignals = data.filter((s: Signal) => s.timestamp >= "2026-01-12");
+                    setSignals(recentSignals);
+                }
+            } catch (error) {
+                console.error("Failed to fetch signals:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchSignals();
+        const interval = setInterval(fetchSignals, 10000); // Poll every 10s
+        return () => clearInterval(interval);
+    }, []);
+
+    // Filter signals for PerformanceStats (Specific to active channel)
+    // Note: SignalTable does its own filtering for display, but Stats needs explicit subset
+    const channelSignals = signals.filter(s => (s.channel_name || "Unknown") === activeChannel);
+
     return (
         <div className="min-h-screen bg-background flex flex-col">
             <header className="border-b border-border p-4">
@@ -25,8 +60,16 @@ export default function PerformancePage() {
                     </p>
                 </div>
 
-                <PerformanceSummary />
-                <SignalTable />
+                {/* Using new dynamic PerformanceStats */}
+                <PerformanceStats signals={channelSignals} activeChannel={activeChannel} />
+
+                {/* SignalTable with controlled state */}
+                <SignalTable
+                    signals={signals}
+                    activeChannel={activeChannel}
+                    onChannelChange={setActiveChannel}
+                    isLoading={loading}
+                />
             </main>
         </div>
     );
