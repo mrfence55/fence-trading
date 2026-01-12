@@ -557,7 +557,7 @@ Trading involves risk. Please trade responsibly.
         
         Args:
             tn_name: Name from Trade Nation
-            tn_country: Country from Trade Nation (optional, for better matching)
+            tn_country: Country from Trade Nation (optional, for logging only)
             
         Returns:
             Matching PendingRegistration or None
@@ -565,16 +565,19 @@ Trading involves risk. Please trade responsibly.
         pending_list = self.get_pending_registrations()
         
         for pending in pending_list:
+            logger.info(f"Checking: pending='{pending.name}' ({pending.country or 'no country'}) vs TN='{tn_name}' ({tn_country})")
+            
             if self.match_name(pending.name, tn_name):
-                # Optional: Also check country if provided
+                # Name matches - this is sufficient for verification
+                # Country is logged but not required to match
                 if tn_country and pending.country:
                     if pending.country.lower().strip() != tn_country.lower().strip():
-                        logger.debug(f"Name match but country mismatch: {pending.country} vs {tn_country}")
-                        continue
+                        logger.info(f"Note: Country differs ({pending.country} vs {tn_country}) but name matched, proceeding anyway")
                 
-                logger.info(f"Found match: {pending.name} -> {tn_name}")
+                logger.info(f"✓ MATCH FOUND: {pending.name} -> {tn_name}")
                 return pending
         
+        logger.info(f"No match found for TN name: {tn_name}")
         return None
 
 
