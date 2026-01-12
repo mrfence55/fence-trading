@@ -401,6 +401,23 @@ async def main():
         update_type = update["type"]
         level = update.get("level", 0)
         
+        # DEDUPLICATION: Check if we've already reported this level or higher
+        current_status = signal.get("status", "OPEN")
+        if update_type == "TP":
+            # Extract current TP level from status (e.g., "TP3" -> 3)
+            current_level = 0
+            if current_status.startswith("TP"):
+                try:
+                    current_level = int(current_status[2:])
+                except:
+                    pass
+            if level <= current_level:
+                print(f"   ⏭️ Skipping TP{level} (already reported TP{current_level})")
+                return
+        elif update_type in ("SL", "BE") and current_status in ("SL", "BE"):
+            print(f"   ⏭️ Skipping {update_type} (already reported)")
+            return
+        
         print(f"📢 [{config['source_name']}] {update_type}{level if level else ''} for {symbol}")
         
         # Mirror the update to target channel
