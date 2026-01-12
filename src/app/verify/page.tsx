@@ -21,6 +21,7 @@ export default function VerifyPage() {
             fullName: formData.get("fullName"),
             country: formData.get("country"),
             email: formData.get("email"),
+            discordUsername: formData.get("discordUsername") || "",
         };
 
         try {
@@ -30,11 +31,15 @@ export default function VerifyPage() {
                 body: JSON.stringify(data),
             });
 
-            if (!response.ok) throw new Error("Failed to submit verification");
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || "Failed to submit verification");
+            }
 
             setIsSuccess(true);
-        } catch (err) {
-            setError("Something went wrong. Please try again.");
+        } catch (err: any) {
+            setError(err.message || "Something went wrong. Please try again.");
         } finally {
             setIsLoading(false);
         }
@@ -124,7 +129,17 @@ export default function VerifyPage() {
                             />
                         </div>
 
-
+                        <div className="space-y-2">
+                            <label htmlFor="discordUsername" className="text-sm font-medium text-foreground">Discord Username (optional)</label>
+                            <input
+                                type="text"
+                                name="discordUsername"
+                                id="discordUsername"
+                                placeholder="@yourusername"
+                                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                            <p className="text-xs text-muted-foreground">If you want to get verified in our Discord too!</p>
+                        </div>
 
 
 
