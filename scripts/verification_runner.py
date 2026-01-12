@@ -109,60 +109,41 @@ async def scrape_trade_nation_registrations() -> list[dict]:
             # Wait for page to load
             await page.wait_for_timeout(3000)
             
-            # Set start date using calendar picker
-            logger.info("Setting start date via calendar picker...")
+            # Set start date by typing directly into input field
+            logger.info("Setting start date via keyboard input...")
             try:
-                # Click on the FIRST date input field (start date)
-                # The input shows something like "01/01/2026"
+                # Find all inputs and look for date-like values
                 date_inputs = await page.query_selector_all("input")
                 start_date_input = None
                 for inp in date_inputs:
                     val = await inp.get_attribute("value")
                     if val and "/" in val:
                         start_date_input = inp
+                        logger.info(f"Found date input with value: {val}")
                         break
                 
                 if start_date_input:
-                    await start_date_input.click()
-                    await page.wait_for_timeout(1000)
+                    # Triple click to select all text in the input
+                    await start_date_input.click(click_count=3)
+                    await page.wait_for_timeout(300)
                     
-                    # Take screenshot of calendar popup
-                    await page.screenshot(path=os.path.join(script_dir, "tn_calendar_popup.png"))
+                    # Type the new date (this will replace selected text)
+                    await page.keyboard.type("01/01/2022")
+                    await page.wait_for_timeout(300)
                     
-                    # Click on the year dropdown (shows "2026" or current year)
-                    # The year is in a dropdown/select element
-                    year_selector = await page.query_selector("select")  # Try select element
-                    if not year_selector:
-                        # Or it might be a clickable span/div showing the year
-                        year_selector = await page.query_selector("text=2026")
-                        if not year_selector:
-                            year_selector = await page.query_selector("text=2025")
-                    
-                    if year_selector:
-                        await year_selector.click()
-                        await page.wait_for_timeout(500)
-                        
-                        # Click on "2022" in the year list
-                        year_2022 = await page.query_selector("text=2022")
-                        if year_2022:
-                            await year_2022.click()
-                            await page.wait_for_timeout(500)
-                            logger.info("Selected year 2022")
-                    
-                    # Click on day "1" to select January 1st
-                    day_1 = await page.query_selector("text=1")
-                    if day_1:
-                        await day_1.click()
-                        await page.wait_for_timeout(500)
-                        logger.info("Selected day 1")
-                    
-                    # Click outside to close calendar or press Escape
-                    await page.keyboard.press("Escape")
+                    # Press Tab to confirm and move to next field
+                    await page.keyboard.press("Tab")
                     await page.wait_for_timeout(500)
                     
+                    logger.info("Typed date 01/01/2022")
+                    
+                    # Take screenshot to verify
+                    await page.screenshot(path=os.path.join(script_dir, "tn_after_date_input.png"))
+                else:
+                    logger.warning("Could not find date input field")
+                    
             except Exception as e:
-                logger.warning(f"Could not set start date via calendar: {e}")
-                # Take error screenshot
+                logger.warning(f"Could not set start date: {e}")
                 await page.screenshot(path=os.path.join(script_dir, "tn_date_error.png"))
             
             # Click Run Report button
