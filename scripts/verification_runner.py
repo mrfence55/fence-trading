@@ -52,7 +52,7 @@ API_ID = int(os.getenv("API_ID", "27308955"))
 API_HASH = os.getenv("API_HASH", "12c8d6da1b61b738ba1d28b892452783")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-CHECK_INTERVAL = int(os.getenv("VERIFICATION_CHECK_INTERVAL", "1800"))  # 30 minutes default
+CHECK_INTERVAL = int(os.getenv("VERIFICATION_CHECK_INTERVAL", "3600"))  # 60 minutes default
 
 # Logging
 logging.basicConfig(
@@ -89,33 +89,37 @@ async def scrape_trade_nation_registrations() -> list[dict]:
         
         try:
             logger.info("Logging into Trade Nation portal...")
-            await page.goto("https://go.tradenation.com/login", timeout=60000)
+            await page.goto("https://go.tradenation.com/login", timeout=120000)
             
             # Wait for form to load
-            await page.wait_for_selector("input[name='user']", timeout=30000)
+            await page.wait_for_selector("input[name='user']", timeout=120000)
             
             await page.fill("input[name='user']", TN_USERNAME)
             await page.fill("input[name='password']", TN_PASSWORD)
             await page.click("button.submit-btn")
             
             # Wait for redirect to partner dashboard
-            await page.wait_for_url("**/partner/**", timeout=60000)
+            await page.wait_for_url("**/partner/**", timeout=120000)
             logger.info("Login successful")
             
-            # Navigate to Registrations Report
+            # Navigate to Registrations Report - go directly to URL (faster)
             logger.info("Navigating to Registrations Report...")
-            try:
-                await page.click("text=Reports")
-                await page.wait_for_timeout(1000)
-                await page.click("text=Registrations Report")
-                await page.wait_for_selector("button:has-text('Run Report')", timeout=60000)
-                await page.click("button:has-text('Run Report')")
-            except Exception as nav_error:
-                logger.warning(f"Menu navigation failed, trying direct URL: {nav_error}")
-                await page.goto("https://go.tradenation.com/partner/reports/registration")
+            await page.goto("https://go.tradenation.com/partner/reports/registration", timeout=120000)
             
-            # Wait for table
-            await page.wait_for_selector("table", timeout=60000)
+            # Wait for page to load
+            await page.wait_for_timeout(5000)
+            
+            # Click Run Report if the button exists
+            try:
+                run_btn = await page.query_selector("button:has-text('Run Report')")
+                if run_btn:
+                    await run_btn.click()
+                    await page.wait_for_timeout(5000)
+            except:
+                pass
+            
+            # Wait for table data
+            await page.wait_for_selector("table tbody tr", timeout=120000)
             
             # Take debug screenshot
             await page.screenshot(path=os.path.join(script_dir, "tn_report_page.png"))
