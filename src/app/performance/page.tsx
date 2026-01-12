@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { SignalTable, Signal } from "@/components/SignalTable";
-import { PerformanceStats } from "@/components/PerformanceStats";
+// import { PerformanceStats } from "@/components/PerformanceStats";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { PerformanceSummary } from "@/components/PerformanceSummary";
+import dynamic from "next/dynamic";
+
+const PerformanceStats = dynamic(() => import("@/components/PerformanceStats").then(mod => mod.PerformanceStats), {
+    ssr: false,
+    loading: () => <div className="h-64 flex items-center justify-center bg-muted/10 rounded-2xl animate-pulse">Loading chart...</div>
+});
 
 export const dynamic = "force-dynamic";
 
