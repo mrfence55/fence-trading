@@ -244,6 +244,16 @@ async def run_verification_cycle(
         logger.warning("No Trade Nation registrations found")
         return
     
+    # Debug: Log all pending names
+    logger.info("=== PENDING REGISTRATIONS ===")
+    for p in pending:
+        logger.info(f"  Pending: '{p.name}' ({p.email})")
+    
+    # Debug: Log all TN names
+    logger.info("=== TRADE NATION REGISTRATIONS ===")
+    for tn in tn_registrations:
+        logger.info(f"  TN: '{tn['name']}' from {tn['country']}")
+    
     # 3. Match and verify
     verified_count = 0
     
@@ -254,6 +264,7 @@ async def run_verification_cycle(
         tn_date = tn_reg['date']
         
         # Find matching pending registration
+        logger.info(f"Checking TN name: '{tn_name}'")
         match = service.find_matching_pending(tn_name, tn_country)
         
         if match:
