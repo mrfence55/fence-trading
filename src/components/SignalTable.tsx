@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export type Signal = {
+type Signal = {
     id: number;
     symbol: string;
     type: string;
@@ -17,42 +18,40 @@ export type Signal = {
     open_time?: string;
 };
 
-interface SignalTableProps {
-    signals: Signal[];
-    activeChannel: string;
-    onChannelChange: (channel: string) => void;
-    isLoading?: boolean;
-}
+export function SignalTable() {
+    const [signals, setSignals] = useState<Signal[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeChannel, setActiveChannel] = useState<string>("All");
 
-export function SignalTable({ signals, activeChannel, onChannelChange, isLoading = false }: SignalTableProps) {
-    // Fixed channel list as requested
-    const channels = [
-        "Fence - Aurora",
-        "Fence - Odin",
-        "Fence - Main",
-        "Fence - Crypto",
-        "Fence - Live" // Utilizing "Live" (capitalized) as probable DB match, label can be adjusted if needed
-    ];
+    useEffect(() => {
+        async function fetchSignals() {
+            try {
+                const res = await fetch("/api/signals");
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setSignals(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch signals:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
 
-    // Filter signals: 
-    // 1. Must match active channel
-    // 2. Must be from Jan 12, 2026 or later (timestamp >= '2026-01-12')
-    const filteredSignals = signals.filter(s => {
-        // Date filter
-        // Assuming timestamp is ISO string or YYYY-MM-DD format start
-        // 12.01.2026 -> "2026-01-12"
-        const isRecent = s.timestamp >= "2026-01-12";
+        fetchSignals();
+        const interval = setInterval(fetchSignals, 10000);
+        return () => clearInterval(interval);
+    }, []);
 
-        // Channel filter
-        // Mapping "Fence - Live" to potential DB variations if needed, 
-        // but strict matching for now based on request.
-        // If activeChannel is one of the list, we filter by it.
-        const matchesChannel = (s.channel_name || "Unknown") === activeChannel;
+    // Extract unique channels
+    const channels = ["All", ...Array.from(new Set(signals.map(s => s.channel_name || "Unknown")))];
 
-        return isRecent && matchesChannel;
-    });
+    // Filter signals
+    const filteredSignals = activeChannel === "All"
+        ? signals
+        : signals.filter(s => (s.channel_name || "Unknown") === activeChannel);
 
-    if (isLoading) {
+    if (loading) {
         return <div className="text-center p-8 text-muted-foreground">Loading performance data...</div>;
     }
 
@@ -63,7 +62,7 @@ export function SignalTable({ signals, activeChannel, onChannelChange, isLoading
                 {channels.map(channel => (
                     <button
                         key={channel}
-                        onClick={() => onChannelChange(channel)}
+                        onClick={() => setActiveChannel(channel)}
                         className={cn(
                             "px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap",
                             activeChannel === channel
@@ -94,8 +93,8 @@ export function SignalTable({ signals, activeChannel, onChannelChange, isLoading
                         <tbody className="divide-y divide-border">
                             {filteredSignals.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                                        No signals recorded for {activeChannel} since Jan 12, 2026.
+                                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                                        No signals recorded yet.
                                     </td>
                                 </tr>
                             ) : (

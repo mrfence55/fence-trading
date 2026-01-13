@@ -8,37 +8,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { SignalTicker } from "@/components/SignalTicker";
 import { PerformanceStats } from "@/components/PerformanceStats";
-import { Signal } from "@/components/SignalTable";
-import { useEffect, useState } from "react";
 
 export default function Home() {
-  const [signals, setSignals] = useState<Signal[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchSignals() {
-      try {
-        const res = await fetch("/api/signals");
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          // Global Date Filter: Only signals from Jan 12, 2026 onwards
-          // 12.01.2026 -> 2026-01-12
-          const recentSignals = data.filter((s: Signal) => s.timestamp >= "2026-01-12");
-          setSignals(recentSignals);
-        }
-      } catch (error) {
-        console.error("Failed to fetch signals:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchSignals();
-    // Optional: interval if we want live updates on landing page too
-    const interval = setInterval(fetchSignals, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navigation */}
@@ -130,7 +101,7 @@ export default function Home() {
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-2xl font-bold mb-2">Live Performance</h2>
             <p className="text-muted-foreground mb-8">Real-time results from our premium signal channel.</p>
-            <PerformanceStats signals={signals} activeChannel="All" />
+            <PerformanceStats />
           </div>
         </section>
 
