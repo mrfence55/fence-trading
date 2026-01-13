@@ -21,26 +21,39 @@ export default function PerformancePage() {
     const [activeChannel, setActiveChannel] = useState<string>("Fence - Aurora");
 
     useEffect(() => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
         async function fetchSignals() {
             try {
-                const res = await fetch("/api/signals");
+                const res = await fetch("/api/signals", { signal: controller.signal });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
                 const data = await res.json();
                 if (Array.isArray(data)) {
                     // Global Date Filter: Only signals from Jan 12, 2026 onwards
-                    // 12.01.2026 -> 2026-01-12
                     const recentSignals = data.filter((s: Signal) => s.timestamp >= "2026-01-12");
                     setSignals(recentSignals);
+                } else {
+                    console.error("Data is not an array:", data);
                 }
             } catch (error) {
-                console.error("Failed to fetch signals:", error);
+                if (error instanceof Error && error.name === 'AbortError') {
+                    console.error("Fetch request timed out");
+                } else {
+                    console.error("Failed to fetch signals:", error);
+                }
             } finally {
+                clearTimeout(timeoutId);
                 setLoading(false);
             }
         }
 
         fetchSignals();
-        const interval = setInterval(fetchSignals, 10000); // Poll every 10s
-        return () => clearInterval(interval);
+        // Polling logic removed for now to prevent spamming if hanging
+        // const interval = setInterval(fetchSignals, 10000);
+        // return () => clearInterval(interval);
+        return () => controller.abort();
     }, []);
 
     // Filter signals for PerformanceStats (Specific to active channel)

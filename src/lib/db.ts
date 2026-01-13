@@ -3,6 +3,7 @@ import path from 'path';
 
 const dbPath = path.join(process.cwd(), 'web_signals.db');
 const db = new Database(dbPath);
+db.pragma('journal_mode = WAL');
 
 export function initDB() {
   db.exec(`
