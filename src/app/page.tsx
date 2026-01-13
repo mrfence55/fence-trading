@@ -7,15 +7,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { SignalTicker } from "@/components/SignalTicker";
-// import { PerformanceStats } from "@/components/PerformanceStats"; // Removed static import
+import { PerformanceStats } from "@/components/PerformanceStats";
 import { Signal } from "@/components/SignalTable";
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
-
-const PerformanceStats = dynamic(() => import("@/components/PerformanceStats").then(mod => mod.PerformanceStats), {
-  ssr: false,
-  loading: () => <div className="h-64 flex items-center justify-center bg-muted/10 rounded-2xl animate-pulse">Loading chart...</div>
-});
 
 export default function Home() {
   const [signals, setSignals] = useState<Signal[]>([]);
