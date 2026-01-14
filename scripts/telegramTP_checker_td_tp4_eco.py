@@ -1116,7 +1116,7 @@ async def main():
     await client.start()
     with open(SESSION_STRING_PATH, "w") as f:
         f.write(client.session.save())
-    print(f"Fence Bot v2.3 - Started. Watching {len(TARGET_CHAT_IDS)} channels... (FIXED UNPACK + 8s Throttle)")
+    print(f"Fence Bot v2.3.1 - Started. Watching {len(TARGET_CHAT_IDS)} channels... (FIXED UNPACK + 8s Throttle + Row Fix)")
     print("TD watcher (økonomi + SL double-check + warm-start) kjører…")
     await asyncio.gather(
         checker_loop(),
