@@ -1,11 +1,61 @@
-import { SignalTable } from "@/components/SignalTable";
-import { PerformanceSummary } from "@/components/PerformanceSummary";
+"use client";
+
+import { SignalTable, Signal } from "@/components/SignalTable";
+import { PerformanceStats } from "@/components/PerformanceStats";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export const dynamic = "force-dynamic";
 
 export default function PerformancePage() {
+    const [signals, setSignals] = useState<Signal[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeChannel, setActiveChannel] = useState<string>("All");
+
+    useEffect(() => {
+        const fetchSignals = async () => {
+            try {
+                // Add timeout to prevent hanging
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+                const res = await fetch("/api/signals", {
+                    signal: controller.signal,
+                    cache: 'no-store'
+                });
+                clearTimeout(timeoutId);
+
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    // Filter signals from Jan 12, 2026 onwards
+                    // Updated to include Jan 13 by ensuring simple string comparison works or date parsing
+                    // "12.1.2026" or "2026-01-12"
+                    // The DB format seems to be YYYY-MM-DD or similar. Let's filter safely.
+                    const startDate = new Date("2026-01-12T00:00:00");
+                    const validSignals = data.filter(s => {
+                        const signalDate = new Date(s.timestamp || s.open_time);
+                        return signalDate >= startDate;
+                    });
+                    setSignals(validSignals);
+                }
+            } catch (error) {
+                console.error("Failed to fetch signals:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchSignals();
+    }, []);
+
+    // Filter by active channel
+    const filteredSignals = activeChannel === "All"
+        ? signals
+        : signals.filter(s => (s.channel_name || "Unknown") === activeChannel);
+
     return (
         <div className="min-h-screen bg-background flex flex-col">
             <header className="border-b border-border p-4">
@@ -25,8 +75,19 @@ export default function PerformancePage() {
                     </p>
                 </div>
 
-                <PerformanceSummary />
-                <SignalTable />
+                {loading ? (
+                    <div className="text-center py-20 animate-pulse text-muted-foreground">Loading performance data...</div>
+                ) : (
+                    <>
+                        <PerformanceStats signals={filteredSignals} activeChannel={activeChannel} />
+
+                        <SignalTable
+                            signals={filteredSignals}
+                            activeChannel={activeChannel}
+                            onChannelChange={setActiveChannel}
+                        />
+                    </>
+                )}
             </main>
         </div>
     );

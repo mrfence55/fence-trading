@@ -8,8 +8,35 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { SignalTicker } from "@/components/SignalTicker";
 import { PerformanceStats } from "@/components/PerformanceStats";
+import { useEffect, useState } from "react";
+import { Signal } from "@/components/SignalTable";
 
 export default function Home() {
+  const [signals, setSignals] = useState<Signal[]>([]);
+
+  useEffect(() => {
+    const fetchSignals = async () => {
+      try {
+        const res = await fetch("/api/signals", { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          // Filter signals from Jan 12, 2026 onwards
+          const startDate = new Date("2026-01-12T00:00:00");
+          const validSignals = data.filter(s => {
+            const signalDate = new Date(s.timestamp || s.open_time);
+            return signalDate >= startDate;
+          });
+          setSignals(validSignals);
+        }
+      } catch (error) {
+        console.error("Failed to fetch signals:", error);
+      }
+    };
+
+    fetchSignals();
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navigation */}
@@ -101,7 +128,7 @@ export default function Home() {
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-2xl font-bold mb-2">Live Performance</h2>
             <p className="text-muted-foreground mb-8">Real-time results from our premium signal channel.</p>
-            <PerformanceStats />
+            <PerformanceStats signals={signals} activeChannel="All" />
           </div>
         </section>
 

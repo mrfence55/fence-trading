@@ -1,46 +1,74 @@
 "use client";
 
 import { TrendingUp, Target, BarChart3, PieChart } from "lucide-react";
+import { Signal } from "./SignalTable";
 
-export function PerformanceStats() {
+interface PerformanceStatsProps {
+    signals: Signal[];
+    activeChannel: string;
+}
+
+export function PerformanceStats({ signals, activeChannel }: PerformanceStatsProps) {
+    // Calculate stats
+    const closedSignals = signals.filter(s => ["TP_HIT", "SL_HIT", "CLOSED", "BREAKEVEN"].includes(s.status));
+    const wins = closedSignals.filter(s => s.status === "TP_HIT").length;
+    const losses = closedSignals.filter(s => s.status === "SL_HIT").length;
+    const meaningfulTrades = wins + losses;
+    const winRate = meaningfulTrades > 0 ? ((wins / meaningfulTrades) * 100).toFixed(1) : "0.0";
+
+    const totalPips = signals.reduce((acc, s) => acc + (s.pips || 0), 0);
+    const activeTrades = signals.filter(s => !["TP_HIT", "SL_HIT", "CLOSED", "BREAKEVEN"].includes(s.status)).length;
+
+    // TP distribution (simple counts)
+    const tp1Count = signals.filter(s => s.tp_level >= 1).length;
+    const tp2Count = signals.filter(s => s.tp_level >= 2).length;
+    const tp3Count = signals.filter(s => s.tp_level >= 3).length;
+    const tp4Count = signals.filter(s => s.tp_level >= 4).length;
+    const totalTP = signals.filter(s => s.tp_level >= 1).length;
+
     return (
-        <div className="space-y-8 max-w-5xl mx-auto mt-8">
-            {/* Key Metrics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-8 max-w-6xl mx-auto mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                    label="Total Pips Gained"
-                    value="+12,450"
-                    subtext="All Time"
+                    label="Total Pips"
+                    value={totalPips > 0 ? `+${totalPips}` : `${totalPips}`}
+                    subtext={activeChannel === "All" ? "All Channels" : activeChannel}
                     icon={<TrendingUp className="w-6 h-6 text-primary" />}
                     highlight
                 />
                 <StatCard
                     label="Win Rate"
-                    value="88%"
-                    subtext="Last 30 Days"
+                    value={`${winRate}%`}
+                    subtext="Excluding BE"
                     icon={<Target className="w-6 h-6 text-green-500" />}
                 />
                 <StatCard
                     label="Active Trades"
-                    value="12"
+                    value={activeTrades.toString()}
                     subtext="Currently Running"
                     icon={<BarChart3 className="w-6 h-6 text-accent" />}
                 />
+                <StatCard
+                    label="Total Signals"
+                    value={signals.length.toString()}
+                    subtext="Since Jan 12"
+                    icon={<PieChart className="w-6 h-6 text-purple-500" />}
+                />
             </div>
 
-            {/* TP Hit Distribution */}
-            <div className="bg-card border border-border rounded-2xl p-8">
-                <div className="flex items-center gap-3 mb-6">
-                    <PieChart className="w-6 h-6 text-primary" />
-                    <h3 className="text-xl font-bold text-foreground">Target Hit Distribution</h3>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <TPBar label="TP1 Hit" percent={95} color="bg-green-500" />
-                    <TPBar label="TP2 Hit" percent={72} color="bg-primary" />
-                    <TPBar label="TP3 Hit" percent={45} color="bg-accent" />
-                    <TPBar label="TP4 Hit" percent={15} color="bg-purple-500" />
-                </div>
+            {/* Simple TP Distribution - No Recharts */}
+            <div className="bg-card border border-border rounded-2xl p-6">
+                <h3 className="text-xl font-bold text-foreground mb-4">Target Hit Distribution ({activeChannel})</h3>
+                {totalTP > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <TPBar label="TP1+" count={tp1Count} total={totalTP} color="bg-green-500" />
+                        <TPBar label="TP2+" count={tp2Count} total={totalTP} color="bg-cyan-500" />
+                        <TPBar label="TP3+" count={tp3Count} total={totalTP} color="bg-amber-500" />
+                        <TPBar label="TP4+" count={tp4Count} total={totalTP} color="bg-purple-500" />
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground text-center py-8">No TP hits recorded for this period.</p>
+                )}
             </div>
         </div>
     );
@@ -61,18 +89,16 @@ function StatCard({ label, value, subtext, icon, highlight }: { label: string, v
     );
 }
 
-function TPBar({ label, percent, color }: { label: string, percent: number, color: string }) {
+function TPBar({ label, count, total, color }: { label: string, count: number, total: number, color: string }) {
+    const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
     return (
         <div className="space-y-2">
-            <div className="flex justify-between text-sm font-medium">
-                <span className="text-muted-foreground">{label}</span>
-                <span className="text-foreground">{percent}%</span>
+            <div className="flex justify-between text-sm">
+                <span className="text-foreground font-medium">{label}</span>
+                <span className="text-muted-foreground">{count} ({percentage}%)</span>
             </div>
-            <div className="h-3 w-full bg-muted rounded-full overflow-hidden">
-                <div
-                    className={`h-full rounded-full ${color}`}
-                    style={{ width: `${percent}%` }}
-                />
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+                <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${percentage}%` }} />
             </div>
         </div>
     );

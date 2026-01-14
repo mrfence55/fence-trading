@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-type Signal = {
+export type Signal = {
     id: number;
     symbol: string;
     type: string;
@@ -18,51 +17,28 @@ type Signal = {
     open_time?: string;
 };
 
-export function SignalTable() {
-    const [signals, setSignals] = useState<Signal[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [activeChannel, setActiveChannel] = useState<string>("All");
+interface SignalTableProps {
+    signals: Signal[];
+    activeChannel: string;
+    onChannelChange: (channel: string) => void;
+}
 
-    useEffect(() => {
-        async function fetchSignals() {
-            try {
-                const res = await fetch("/api/signals");
-                const data = await res.json();
-                if (Array.isArray(data)) {
-                    setSignals(data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch signals:", error);
-            } finally {
-                setLoading(false);
-            }
-        }
+const CHANNELS = ["All", "Fence - Aurora", "Fence - Odin", "Fence - Main", "Fence - Crypto", "Fence - Live"];
 
-        fetchSignals();
-        const interval = setInterval(fetchSignals, 10000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Extract unique channels
-    const channels = ["All", ...Array.from(new Set(signals.map(s => s.channel_name || "Unknown")))];
-
-    // Filter signals
+export function SignalTable({ signals, activeChannel, onChannelChange }: SignalTableProps) {
+    // Filter signals based on active channel
     const filteredSignals = activeChannel === "All"
         ? signals
         : signals.filter(s => (s.channel_name || "Unknown") === activeChannel);
-
-    if (loading) {
-        return <div className="text-center p-8 text-muted-foreground">Loading performance data...</div>;
-    }
 
     return (
         <div className="space-y-4">
             {/* Channel Tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2">
-                {channels.map(channel => (
+                {CHANNELS.map(channel => (
                     <button
                         key={channel}
-                        onClick={() => setActiveChannel(channel)}
+                        onClick={() => onChannelChange(channel)}
                         className={cn(
                             "px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap",
                             activeChannel === channel
@@ -93,7 +69,7 @@ export function SignalTable() {
                         <tbody className="divide-y divide-border">
                             {filteredSignals.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                                         No signals recorded yet.
                                     </td>
                                 </tr>
