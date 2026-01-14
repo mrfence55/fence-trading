@@ -17,6 +17,7 @@ export function PerformanceStats({ signals, activeChannel }: PerformanceStatsPro
     const winRate = meaningfulTrades > 0 ? ((wins / meaningfulTrades) * 100).toFixed(1) : "0.0";
 
     const totalPips = signals.reduce((acc, s) => acc + (s.pips || 0), 0);
+    const formattedPips = Number.isInteger(totalPips) ? totalPips : totalPips.toFixed(1);
     const activeTrades = signals.filter(s => !["TP_HIT", "SL_HIT", "CLOSED", "BREAKEVEN"].includes(s.status)).length;
 
     // TP distribution (simple counts)
@@ -31,7 +32,7 @@ export function PerformanceStats({ signals, activeChannel }: PerformanceStatsPro
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     label="Total Pips"
-                    value={totalPips > 0 ? `+${totalPips}` : `${totalPips}`}
+                    value={totalPips > 0 ? `+${formattedPips}` : `${formattedPips}`}
                     subtext={activeChannel === "All" ? "All Channels" : activeChannel}
                     icon={<TrendingUp className="w-6 h-6 text-primary" />}
                     highlight
