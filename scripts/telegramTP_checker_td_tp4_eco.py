@@ -147,6 +147,8 @@ SIG_RX_SYMBOL_BUYSELL = re.compile(
     re.IGNORECASE | re.DOTALL
 )
 
+)
+
 SIG_RX_SIMPLE = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
     r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
@@ -992,7 +994,7 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
                 "rr_ratio": rr_ratio,
                 "profit": profit,
                 "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat(),
-                "fingerprint": r["fingerprint"]
+                "fingerprint": r["fingerprint"] if "fingerprint" in r.keys() else None
             })
             print(f"Telegram Update: {symbol} TP{new_hits} Hit! RR: {rr_ratio}R (${profit})")
             
