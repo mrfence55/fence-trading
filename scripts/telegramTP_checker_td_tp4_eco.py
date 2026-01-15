@@ -146,32 +146,17 @@ SIG_RX_SYMBOL_BUYSELL = re.compile(
     r'(?:.*?(?:tp4|tp\s*4|take\s*profit\s*4)[:=\s]*?(?P<tp4>[-+]?\d*[\,\.]?\d+))?',
     re.IGNORECASE | re.DOTALL
 )
-SIG_RX_SIMPLE = re.compile(
-    r'(?P<side_word>BUY|SELL)\s+'
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
-    r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
+# NEW: Flexible Regex for Crypto (allows words like "Scalp", "Swing" between Symbol and Side)
+SIG_RX_CRYPTO_FLEXIBLE = re.compile(
+    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\b'
+    r'.{0,25}?' # Allow filler words (Scalp, Swing, etc)
+    r'(?P<side>LONG|SHORT)\b.*?'
+    r'(?:entry|entry\s*price|ep|enter|entry\s*at)[^\d]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
+    r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
     r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
     r'(?:.*?(?:tp3|tp\s*3|take\s*profit\s*3)[:=\s]*?(?P<tp3>[-+]?\d*[\,\.]?\d+))?'
-    r'(?:.*?(?:tp4|tp\s*4|take\s*profit\s*4)[:=\s]*?(?P<tp4>[-+]?\d*[\,\.]?\d+))?'
-    r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)',
-    re.IGNORECASE | re.DOTALL
-)
-SIG_RX_SIMPLE_IMPLICIT = re.compile(
-    r'(?P<side_word>BUY|SELL)\s+'
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
-    r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
-    r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)',
-    re.IGNORECASE | re.DOTALL
-)
-SIG_RX_IMPLICIT_ENTRY = re.compile(
-    r'(?P<side_word>BUY|SELL)\s+'
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
-    r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
-    r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
-    r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
-    r'(?:.*?(?:tp3|tp\s*3|take\s*profit\s*3)[:=\s]*?(?P<tp3>[-+]?\d*[\,\.]?\d+))?'
-    r'(?:.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+))?',
+    r'(?:.*?(?:tp4|tp\s*4|take\s*profit\s*4)[:=\s]*?(?P<tp4>[-+]?\d*[\,\.]?\d+))?',
     re.IGNORECASE | re.DOTALL
 )
 
@@ -202,38 +187,45 @@ def parse_signal_text(text: str) -> Optional[Dict[str, Any]]:
     cleaned = re.sub(r'\s+', ' ', cleaned)
 
     d = side = sym = None
-    m = SIG_RX_CLASSIC.search(cleaned)
+    
+    # 1. Try Flexible Crypto First (Matches complex patterns like "BTCUSD Scalp Long")
+    m = SIG_RX_CRYPTO_FLEXIBLE.search(cleaned)
     if m:
         d = m.groupdict(); side = d["side"].lower(); sym = _normalize_symbol(d["symbol"])
     else:
-        m = SIG_RX_BUYSELL.search(cleaned)
+        # 2. Try Classic
+        m = SIG_RX_CLASSIC.search(cleaned)
         if m:
-            d = m.groupdict()
-            side = "long" if d["side_word"].lower()=="buy" else "short"
-            sym = _normalize_symbol(d["symbol"])
+            d = m.groupdict(); side = d["side"].lower(); sym = _normalize_symbol(d["symbol"])
         else:
-            m = SIG_RX_SYMBOL_BUYSELL.search(cleaned)
+            m = SIG_RX_BUYSELL.search(cleaned)
             if m:
                 d = m.groupdict()
                 side = "long" if d["side_word"].lower()=="buy" else "short"
                 sym = _normalize_symbol(d["symbol"])
             else:
-                m = SIG_RX_SIMPLE.search(cleaned)
+                m = SIG_RX_SYMBOL_BUYSELL.search(cleaned)
                 if m:
                     d = m.groupdict()
                     side = "long" if d["side_word"].lower()=="buy" else "short"
                     sym = _normalize_symbol(d["symbol"])
                 else:
-                    m = SIG_RX_SIMPLE_IMPLICIT.search(cleaned)
+                    m = SIG_RX_SIMPLE.search(cleaned)
                     if m:
-                        d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
-                    else:
-                        # NEW: Try implicit entry (Action Symbol Price)
-                        m = SIG_RX_IMPLICIT_ENTRY.search(cleaned)
-                        if not m: return None
                         d = m.groupdict()
                         side = "long" if d["side_word"].lower()=="buy" else "short"
                         sym = _normalize_symbol(d["symbol"])
+                    else:
+                        m = SIG_RX_SIMPLE_IMPLICIT.search(cleaned)
+                        if m:
+                            d = m.groupdict(); side = "long" if d["side_word"].lower()=="buy" else "short"; sym = _normalize_symbol(d["symbol"])
+                        else:
+                            # NEW: Try implicit entry (Action Symbol Price)
+                            m = SIG_RX_IMPLICIT_ENTRY.search(cleaned)
+                            if not m: return None
+                            d = m.groupdict()
+                            side = "long" if d["side_word"].lower()=="buy" else "short"
+                            sym = _normalize_symbol(d["symbol"])
 
     if not sym.strip(): return None
     try:
