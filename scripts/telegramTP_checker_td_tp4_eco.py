@@ -147,8 +147,6 @@ SIG_RX_SYMBOL_BUYSELL = re.compile(
     re.IGNORECASE | re.DOTALL
 )
 
-)
-
 SIG_RX_SIMPLE = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
     r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
