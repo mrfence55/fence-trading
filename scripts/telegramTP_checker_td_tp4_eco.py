@@ -1,12 +1,12 @@
 # telegramTP_checker_td_tp4_eco.py
 # Twelve Data TP/SL watcher – economy mode + dedup + warm-start + SL double-check
 
-import re, time, asyncio, urllib.parse, sqlite3
-import platform
+import re, time, asyncio, urllib.parse, sqlite3, traceback
+# import platform
 
-# Fix for Windows asyncio loop error
-if platform.system() == 'Windows':
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+# Fix for Windows asyncio loop error - DISABLED, didn't work and caused generic parsing issues?
+# if platform.system() == 'Windows':
+#     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -1134,6 +1134,7 @@ async def checker_loop():
             await asyncio.sleep(60)
         except Exception as e:
             print("Loop error:", e)
+            traceback.print_exc()
             await asyncio.sleep(15)
 
 # ---------- Main ----------
