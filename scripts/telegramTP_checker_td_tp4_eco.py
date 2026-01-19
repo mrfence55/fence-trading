@@ -2,6 +2,11 @@
 # Twelve Data TP/SL watcher – economy mode + dedup + warm-start + SL double-check
 
 import re, time, asyncio, urllib.parse, sqlite3
+import platform
+
+# Fix for Windows asyncio loop error
+if platform.system() == 'Windows':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List, Tuple
 
