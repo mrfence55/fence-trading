@@ -31,7 +31,7 @@ API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 SESSION_NAME = "fence_relay_v3"
 
 DB_PATH = "relay_v3.db"
-WEBSITE_API_URL = "http://localhost:3000/api/signals"
+WEBSITE_API_URL = "https://fencetrading.no/api/signals"
 
 # Channel Mappings: source_id -> {target_id, alias, format}
 # Format: "fred" for Fredtrading channels, "external" for Gold Complex & TFXC
