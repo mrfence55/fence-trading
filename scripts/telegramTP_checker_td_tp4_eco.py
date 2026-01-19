@@ -411,7 +411,15 @@ async def td_time_series_1m(symbol: str, since_ms: int) -> List[List]:
     sym = td_map_symbol(symbol)
     if not sym: return []
     sym_q = urllib.parse.quote(sym, safe="")
-    start_iso = datetime.fromtimestamp(since_ms/1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        # Windows safeguard: clamp timestamp to avoid [Errno 22]
+        ts_sec = since_ms / 1000
+        if ts_sec < 946684800: ts_sec = 946684800 # Min 2000-01-01
+        if ts_sec > 32503680000: ts_sec = 32503680000 # Max 3000-01-01
+        start_iso = datetime.fromtimestamp(ts_sec, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception as e:
+        print(f"DEBUG: Invalid timestamp {since_ms} for {sym}: {e}")
+        return []
     url = ("https://api.twelvedata.com/time_series"
            f"?symbol={sym_q}&interval=1min&start_date={start_iso}"
            f"&outputsize=1000&timezone=UTC&apikey={TD_KEY}")
