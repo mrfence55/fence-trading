@@ -69,33 +69,61 @@ async def main():
     print(f"{'TIME (UTC)':<10} | {'CHANNEL':<15} | {'SYMBOL':<10} | {'SIDE':<5} | {'ENTRY':<10} | {'DB STATUS'}")
     print("-" * 85)
 
-    for chat_id, config in CHANNELS_CONFIG.items():
-        channel_alias = config['alias'][:15]
-        
-        # Iterate messages in range
-        # We fetch a bit more to ensure we cover the range (reverse order usually)
-        async for msg in client.iter_messages(chat_id, limit=None, offset_date=end_time):
-            if msg.date < start_time:
-                break # We went past the start time
+    # Prepare CSV
+    csv_filename = f"history_dump_{target_date.strftime('%Y-%m-%d')}.csv"
+    with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+        fieldnames = ['Time', 'Channel', 'Symbol', 'Side', 'Entry', 'DB_Status', 'DB_Details']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for chat_id, config in CHANNELS_CONFIG.items():
+            channel_alias = config['alias'][:15]
             
-            if msg.date > end_time:
-                continue
-
-            parsed = parse_signal_text(msg.message)
-            if parsed:
-                # Generate fingerprint to check DB
-                import re
-                symbol_fp = re.sub(r'[^A-Z0-9]', '', parsed['symbol'].upper())
-                side_fp = "LONG" if parsed['side'].lower() in ("long", "buy") else "SHORT"
-                msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
-                rounded_ts = (msg_ts // 600) * 600
-                fingerprint = f"{symbol_fp}_{side_fp}_{rounded_ts}"
-
-                db_status = await check_db_for_signal(fingerprint)
+            # Iterate messages in range
+            async for msg in client.iter_messages(chat_id, limit=None, offset_date=end_time):
+                if msg.date < start_time:
+                    break 
                 
-                time_str = msg.date.strftime('%H:%M:%S')
-                print(f"{time_str:<10} | {channel_alias:<15} | {parsed['symbol']:<10} | {parsed['side']:<5} | {parsed['entry']:<10} | {db_status}")
-                total_found += 1
+                if msg.date > end_time:
+                    continue
+
+                parsed = parse_signal_text(msg.message)
+                if parsed:
+                    # Generate fingerprint
+                    import re
+                    symbol_fp = re.sub(r'[^A-Z0-9]', '', parsed['symbol'].upper())
+                    side_fp = "LONG" if parsed['side'].lower() in ("long", "buy") else "SHORT"
+                    msg_ts = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
+                    rounded_ts = (msg_ts // 600) * 600
+                    fingerprint = f"{symbol_fp}_{side_fp}_{rounded_ts}"
+
+                    db_status_raw = await check_db_for_signal(fingerprint)
+                    
+                    # Clean status for CSV
+                    if "FOUND" in db_status_raw:
+                        simple_status = "FOUND"
+                        details = db_status_raw
+                    else:
+                        simple_status = "MISSING"
+                        details = ""
+
+                    time_str = msg.date.strftime('%H:%M:%S')
+                    print(f"{time_str:<10} | {channel_alias:<15} | {parsed['symbol']:<10} | {parsed['side']:<5} | {parsed['entry']:<10} | {db_status_raw}")
+                    
+                    writer.writerow({
+                        'Time': time_str,
+                        'Channel': config['alias'],
+                        'Symbol': parsed['symbol'],
+                        'Side': parsed['side'],
+                        'Entry': parsed['entry'],
+                        'DB_Status': simple_status,
+                        'DB_Details': details
+                    })
+                    total_found += 1
+    
+    print("-" * 85)
+    print(f"Total Signals Found: {total_found}")
+    print(f"Report saved to: {csv_filename}")
 
     print("-" * 85)
     print(f"Total Signals Found: {total_found}")
