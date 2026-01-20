@@ -568,6 +568,7 @@ def format_signal_smart(alias, asset_type, side, symbol, entry, sl, tps, raw_tex
 async def send_to_website(data: dict):
     """Sends signal update to the website API."""
     try:
+        print(f"DEBUG: Website Payload: {data}")
         async with aiohttp.ClientSession() as session:
             async with session.post(WEBSITE_API_URL, json=data) as resp:
                 if resp.status != 200:
