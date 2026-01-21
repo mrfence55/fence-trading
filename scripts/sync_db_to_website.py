@@ -36,6 +36,18 @@ async def main():
     print("Scanning local DB for signals to push...")
 
     async with aiohttp.ClientSession() as session:
+        # STEP 1: Clear Website DB (To remove old 'Unknown' entries)
+        print("  [Action] Clearing old website data...")
+        try:
+            async with session.delete(WEBSITE_API_URL) as resp:
+                if resp.status == 200:
+                    print("  [Success] Website database cleared.")
+                else:
+                    print(f"  [Warning] Failed to clear website: {resp.status}")
+        except Exception as e:
+            print(f"  [Warning] Could not clear website: {e}")
+
+        # STEP 2: Sync New Data
         async with aiosqlite.connect(DB_PATH) as db:
             async with db.execute("SELECT * FROM signals ORDER BY created_at DESC") as cursor:
                 columns = [description[0] for description in cursor.description]

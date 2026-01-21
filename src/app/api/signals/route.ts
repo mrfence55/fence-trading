@@ -113,6 +113,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
+}
 
 export async function GET() {
     try {
@@ -120,6 +121,17 @@ export async function GET() {
         const stmt = db.prepare('SELECT * FROM signals ORDER BY open_time DESC');
         const signals = stmt.all();
         return NextResponse.json(signals);
+    } catch (error) {
+        console.error("Signal API Error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}
+
+export async function DELETE() {
+    try {
+        const stmt = db.prepare('DELETE FROM signals');
+        stmt.run();
+        return NextResponse.json({ success: true, message: "All signals cleared" });
     } catch (error) {
         console.error("Signal API Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
