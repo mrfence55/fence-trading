@@ -89,7 +89,7 @@ MAX_SIGNAL_AGE_DAYS = 5
 WARM_START_SKIP_BACKFILL = False
 
 # Website API Config
-WEBSITE_API_URL = "https://fencetrading.no/api/signals"
+WEBSITE_API_URL = "http://127.0.0.1:3000/api/signals" # Bypass public domain issues on VPS
 # =====================================
 
 # Touch buffers (reduce false positives on wicks)
