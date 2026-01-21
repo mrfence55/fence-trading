@@ -103,7 +103,7 @@ async def main():
     await db_init_check()
 
     # 3. Scan & Fill
-    scan_days = 14
+    scan_days = 20
     cutoff_time = datetime.now(tz=timezone.utc) - timedelta(days=scan_days)
     
     print(f"Scanning last {scan_days} days (since {cutoff_time})...")
@@ -185,12 +185,16 @@ async def main():
                                             updates['tp_level'] = new_hits
 
                                     elif status == "SL_HIT":
-                                        updates['status'] = "SL_HIT"
-                                        updates['profit'] = -1000
-                                        updates['rr_ratio'] = -1.0
+                                        # Only mark SL if we haven't hit TPs yet (Priority: TP > SL)
+                                        if current_hits == 0:
+                                            updates['status'] = "SL_HIT"
+                                            updates['profit'] = -1000
+                                            updates['rr_ratio'] = -1.0
                                     elif status == "BREAKEVEN":
-                                        updates['status'] = "BREAKEVEN"
-                                        updates['profit'] = 0
+                                        # Only mark BE if we haven't hit TPs yet
+                                        if current_hits == 0:
+                                            updates['status'] = "BREAKEVEN"
+                                            updates['profit'] = 0
 
                                     if updates:
                                         set_clause = ", ".join([f"{k}=?" for k in updates.keys()])
