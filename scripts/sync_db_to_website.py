@@ -77,7 +77,7 @@ async def main():
                     "profit": row_dict.get('profit', 0),
                     "open_time": datetime.fromtimestamp(row_dict['created_at'], tz=timezone.utc).isoformat(),
                     "fingerprint": row_dict.get('fingerprint'),
-                    "channel_id": chat_id,
+                    "channel_id": chat_id_raw,
                     "channel_name": channel_name  # Explicitly send resolved name
                 }
 
