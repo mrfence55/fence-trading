@@ -93,7 +93,7 @@ export async function POST(request: Request) {
 
         const info = stmt.run(
             body.symbol,
-            body.type,
+            body.type || 'scalp', // Default to 'scalp' if missing to satisfy NOT NULL
             body.status,
             body.pips || 0,
             body.tp_level || 0,
