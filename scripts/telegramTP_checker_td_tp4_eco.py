@@ -1016,38 +1016,44 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
 
         # Handle Breakeven
         elif status == "BREAKEVEN":
-            # Get Alias
-            config = CHANNELS_CONFIG.get(r["chat_id"])
-            channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
-
-            await send_to_website({
-                "symbol": symbol,
-                "type": side.upper(),
-                "status": "BREAKEVEN",
-                "pips": 0,
-                "tp_level": current_hits, # Keep current TP level if any
-                "channel_id": r["chat_id"],
-                "channel_name": channel_name,
-                "risk_pips": 0,
-                "reward_pips": 0,
-                "rr_ratio": 0,
-                "profit": 0, # Explicit $0
-                "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
-            })
-            print(f"Telegram Update: {symbol} Moved to BREAKEVEN")
-            reply_action_text = "🛡️ **Breakeven** (Entry Secured)"
-
-        # Handle SL/Close
-        elif status:
-            updates['status'] = "closed" # DB status is simplified
-            updates['close_reason'] = close_reason
-            updates['last_check_ts'] = int(time.time())
-            
-            # Only log SL to website if NO TPs were hit (pure loss)
-            if status == "SL_HIT" and current_hits == 0:
+            # Only update to Breakeven if we haven't hit any TPs yet
+            if current_hits == 0:
                 # Get Alias
                 config = CHANNELS_CONFIG.get(r["chat_id"])
                 channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
+
+                await send_to_website({
+                    "symbol": symbol,
+                    "type": side.upper(),
+                    "status": "BREAKEVEN",
+                    "pips": 0,
+                    "tp_level": current_hits, # Keep current TP level if any
+                    "channel_id": r["chat_id"],
+                    "channel_name": channel_name,
+                    "risk_pips": 0,
+                    "reward_pips": 0,
+                    "rr_ratio": 0,
+                    "profit": 0, # Explicit $0
+                    "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
+                })
+                print(f"Telegram Update: {symbol} Moved to BREAKEVEN")
+                reply_action_text = "🛡️ **Breakeven** (Entry Secured)"
+            else:
+                 print(f"DEBUG: Ignoring Breakeven for {symbol} because TP{current_hits} was already hit.")
+
+        # Handle SL/Close
+        elif status:
+            # Downgrade protection: Only close as "SL HIT" if no TPs secured
+            if current_hits == 0:
+                updates['status'] = "closed" # DB status is simplified
+                updates['close_reason'] = close_reason
+                updates['last_check_ts'] = int(time.time())
+                
+                # Only log SL to website if NO TPs were hit (pure loss)
+                if status == "SL_HIT":
+                    # Get Alias
+                    config = CHANNELS_CONFIG.get(r["chat_id"])
+                    channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
 
                 await send_to_website({
                     "symbol": symbol,
