@@ -116,7 +116,8 @@ export async function POST(request: Request) {
 
 export async function GET() {
     try {
-        const stmt = db.prepare('SELECT * FROM signals ORDER BY timestamp DESC');
+        // Sort by open_time to respect original signal date, not valid insertion time
+        const stmt = db.prepare('SELECT * FROM signals ORDER BY open_time DESC');
         const signals = stmt.all();
         return NextResponse.json(signals);
     } catch (error) {

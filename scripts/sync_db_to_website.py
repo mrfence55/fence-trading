@@ -49,12 +49,20 @@ async def main():
             for row in rows:
                 row_dict = dict(zip(columns, row))
                 
-                # Resolve Channel Name
-                chat_id = row_dict.get('chat_id')
+                # Resolve Channel Name (Robust String Lookup)
+                chat_id_raw = row_dict.get('chat_id')
                 channel_name = "Unknown"
-                if chat_id in CHANNELS_CONFIG:
-                    channel_name = CHANNELS_CONFIG[chat_id]['alias']
                 
+                # Convert keys to strings for safe comparison
+                config_map = {str(k): v for k, v in CHANNELS_CONFIG.items()}
+                
+                if str(chat_id_raw) in config_map:
+                    channel_name = config_map[str(chat_id_raw)]['alias']
+                else:
+                    # Debug only the first few failures to avoid spam
+                    if success_count < 5: 
+                         print(f"DEBUG: Unknown ID {chat_id_raw} (Type: {type(chat_id_raw)}) not found in keys: {list(config_map.keys())[:2]}...")
+
                 # Construct payload matches route.ts expectation
                 payload = {
                     "symbol": row_dict['symbol'],
