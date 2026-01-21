@@ -87,6 +87,8 @@ async def main():
     print(f"Scanning last {scan_days} days (since {cutoff_time})...")
 
     async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row  # Set globally for name access
+        
         for chat_id, config in CHANNELS_CONFIG.items():
             print(f"\nScanning Channel: {config['alias']} ({chat_id})...")
             
@@ -124,7 +126,6 @@ async def main():
                         if new_hits is not None or status is not None:
                             # Verify Original Signal Exists
                             async with db.execute("SELECT * FROM signals WHERE chat_id = ? AND msg_id = ?", (chat_id, original_msg_id)) as cursor:
-                                db.row_factory = aiosqlite.Row
                                 r = await cursor.fetchone()
                                 
                                 if r:
