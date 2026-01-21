@@ -97,6 +97,106 @@ async def main():
                 if msg.date < cutoff_time:
                     break
                 
+                # --- REPLY / UPDATE HANDLING ---
+                if msg.is_reply:
+                    reply_header = await msg.get_reply_message()
+                    if reply_header:
+                        original_msg_id = reply_header.id
+                        raw_text = msg.text or ""
+                        text = raw_text.lower()
+                        
+                        # Identify Update
+                        new_hits = None
+                        status = None
+                        
+                        if "tp1" in text or "tp 1" in text: new_hits = 1
+                        elif "tp2" in text or "tp 2" in text: new_hits = 2
+                        elif "tp3" in text or "tp 3" in text: new_hits = 3
+                        elif "tp4" in text or "tp 4" in text: new_hits = 4
+                        elif ("breakeven" in text or "break even" in text or "be" in text.split() or 
+                              ("entry" in text and ("sl" in text or "stop" in text))):
+                            status = "BREAKEVEN"
+                        elif "sl hit" in text or "stop loss" in text:
+                            status = "SL_HIT"
+                        elif "close" in text and "now" in text:
+                            status = "closed"
+
+                        if new_hits is not None or status is not None:
+                            # Verify Original Signal Exists
+                            async with db.execute("SELECT * FROM signals WHERE chat_id = ? AND msg_id = ?", (chat_id, original_msg_id)) as cursor:
+                                db.row_factory = aiosqlite.Row
+                                r = await cursor.fetchone()
+                                
+                                if r:
+                                    # Perform Update
+                                    current_hits = r['hits']
+                                    updates = {}
+                                    rr_ratio = 0
+                                    profit = 0
+                                    
+                                    # logic from main bot
+                                    entry = float(r["entry"])
+                                    sl = float(r["sl"]) if r["sl"] else 0
+                                    tp_value = None
+                                    
+                                    if new_hits is not None and new_hits > current_hits:
+                                        updates['hits'] = new_hits
+                                        updates['status'] = "TP_HIT"
+                                        updates['last_check_ts'] = int(msg.date.replace(tzinfo=timezone.utc).timestamp())
+                                        
+                                        if new_hits == 1: tp_value = float(r["tp1"]) if r["tp1"] else None
+                                        elif new_hits == 2: tp_value = float(r["tp2"]) if r["tp2"] else None
+                                        elif new_hits == 3: tp_value = float(r["tp3"]) if r["tp3"] else None
+                                        elif new_hits == 4: tp_value = float(r["tp4"]) if r["tp4"] else None
+                                        
+                                        if tp_value:
+                                            risk_pips = abs(entry - sl)
+                                            reward_pips = abs(tp_value - entry)
+                                            rr_ratio = round(reward_pips / risk_pips, 2) if risk_pips > 0 else 0
+                                            profit = round(rr_ratio * 1000, 2)
+                                            updates['profit'] = profit
+                                            updates['rr_ratio'] = rr_ratio
+                                            updates['pips'] = round(reward_pips, 2)
+                                            updates['reward_pips'] = round(reward_pips, 2)
+                                            updates['risk_pips'] = round(risk_pips, 2)
+                                            updates['tp_level'] = new_hits
+
+                                    elif status == "SL_HIT":
+                                        updates['status'] = "SL_HIT"
+                                        updates['profit'] = -1000
+                                        updates['rr_ratio'] = -1.0
+                                    elif status == "BREAKEVEN":
+                                        updates['status'] = "BREAKEVEN"
+                                        updates['profit'] = 0
+
+                                    if updates:
+                                        set_clause = ", ".join([f"{k}=?" for k in updates.keys()])
+                                        values = list(updates.values())
+                                        values.append(r['id'])
+                                        await db.execute(f"UPDATE signals SET {set_clause} WHERE id=?", values)
+                                        await db.commit()
+                                        print(f"  [UPDATE] ID {r['id']} -> {updates.get('status', 'UPDATED')} (Hits: {updates.get('hits')})")
+                                        
+                                        # Push Update to Website
+                                        web_payload = {
+                                            "symbol": r['symbol'],
+                                            "type": r['side'].upper(),
+                                            "status": updates.get('status', "UPDATED"),
+                                            "channel_id": chat_id,
+                                            "channel_name": config['alias'],
+                                            "open_time": datetime.fromtimestamp(r['created_at'], tz=timezone.utc).isoformat(),
+                                            "fingerprint": r['fingerprint']
+                                        }
+                                        # Add optional fields if they changed
+                                        if 'pips' in updates: web_payload['pips'] = updates['pips']
+                                        if 'tp_level' in updates: web_payload['tp_level'] = updates['tp_level']
+                                        if 'profit' in updates: web_payload['profit'] = updates['profit']
+                                        if 'rr_ratio' in updates: web_payload['rr_ratio'] = updates['rr_ratio']
+                                        
+                                        await send_to_website(web_payload)
+
+
+                # --- EXISTING NEW SIGNAL LOGIC ---
                 parsed = parse_signal_text(msg.message)
                 if not parsed:
                     continue
@@ -144,10 +244,11 @@ async def main():
                     "channel_id": chat_id,
                     "channel_name": config['alias'],
                     "risk_pips": 0, # Calc later if needed
-                    "reward_pips": 0,
+                    "reward_pips": 0, # Default 0 for open
                     "rr_ratio": 0,
                     "profit": 0,
-                    "open_time": msg.date.isoformat()
+                    "open_time": msg.date.isoformat(),
+                    "fingerprint": fingerprint
                 })
                 
                 # Note: This script ONLY inserts the "Open" signal.
@@ -158,7 +259,7 @@ async def main():
 
     await client.disconnect()
     print("\n=== BACKFILL COMPLETE ===")
-    print("NOTE: The main bot will now pick up these 'open' source signals and check if they hit TP/SL.")
+    print("NOTE: Reply updates have been processed.")
 
 if __name__ == "__main__":
     asyncio.run(main())
