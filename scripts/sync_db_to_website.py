@@ -5,6 +5,13 @@ import aiohttp
 import sys
 from datetime import datetime, timezone
 
+
+try:
+    from telegramTP_checker_td_tp4_eco import CHANNELS_CONFIG
+except ImportError:
+    print("Error: Could not import config. Run from repo root.")
+    sys.exit(1)
+
 # Configuration
 DB_PATH = "signals.db"
 WEBSITE_API_URL = "http://127.0.0.1:3000/api/signals"
@@ -15,10 +22,9 @@ async def send_to_website(session, data):
         async with session.post(WEBSITE_API_URL, json=data) as resp:
             if resp.status != 200:
                 text = await resp.text()
-                print(f"  [Error] API {resp.status}: {text}")
+                # print(f"  [Error] API {resp.status}: {text}")
                 return False
             else:
-                # print(f"  [Success] Sent {data.get('symbol')}")
                 return True
     except Exception as e:
         print(f"  [Failed] Connection error: {e}")
@@ -31,10 +37,6 @@ async def main():
 
     async with aiohttp.ClientSession() as session:
         async with aiosqlite.connect(DB_PATH) as db:
-            # Fetch all signals
-            # Mapping columns based on typical schema
-            # id, symbol, side, status, pips, tp_level, risk_pips, reward_pips, rr_ratio, profit, created_at, fingerprint, channel_id
-            
             async with db.execute("SELECT * FROM signals ORDER BY created_at DESC") as cursor:
                 columns = [description[0] for description in cursor.description]
                 rows = await cursor.fetchall()
@@ -46,6 +48,12 @@ async def main():
             
             for row in rows:
                 row_dict = dict(zip(columns, row))
+                
+                # Resolve Channel Name
+                chat_id = row_dict.get('chat_id')
+                channel_name = "Unknown"
+                if chat_id in CHANNELS_CONFIG:
+                    channel_name = CHANNELS_CONFIG[chat_id]['alias']
                 
                 # Construct payload matches route.ts expectation
                 payload = {
@@ -61,7 +69,8 @@ async def main():
                     "profit": row_dict.get('profit', 0),
                     "open_time": datetime.fromtimestamp(row_dict['created_at'], tz=timezone.utc).isoformat(),
                     "fingerprint": row_dict.get('fingerprint'),
-                    "channel_id": row_dict.get('chat_id') # Mapping chat_id to channel_id
+                    "channel_id": chat_id,
+                    "channel_name": channel_name  # Explicitly send resolved name
                 }
 
                 # Status correction for display
