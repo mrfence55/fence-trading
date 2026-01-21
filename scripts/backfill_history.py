@@ -48,6 +48,28 @@ async def db_init_check():
             );
         """)
         await db.commit()
+    
+    # 2. Add missing columns (Migration)
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN profit REAL DEFAULT 0;")
+        except Exception: pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN rr_ratio REAL DEFAULT 0;")
+        except Exception: pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN risk_pips REAL DEFAULT 0;")
+        except Exception: pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN reward_pips REAL DEFAULT 0;")
+        except Exception: pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN pips REAL DEFAULT 0;")
+        except Exception: pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN tp_level INTEGER DEFAULT 0;")
+        except Exception: pass
+        await db.commit()
 
 async def send_to_website(data: dict):
     try:
