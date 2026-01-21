@@ -39,11 +39,13 @@ async def main():
         # STEP 1: Clear Website DB (To remove old 'Unknown' entries)
         print("  [Action] Clearing old website data...")
         try:
-            async with session.delete(WEBSITE_API_URL) as resp:
+            # Use POST with action='reset' to bypass potential DELETE 405 errors
+            async with session.post(WEBSITE_API_URL, json={'action': 'reset'}) as resp:
                 if resp.status == 200:
                     print("  [Success] Website database cleared.")
                 else:
-                    print(f"  [Warning] Failed to clear website: {resp.status}")
+                    text = await resp.text()
+                    print(f"  [Warning] Failed to clear website: {resp.status} - {text}")
         except Exception as e:
             print(f"  [Warning] Could not clear website: {e}")
 

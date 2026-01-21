@@ -8,6 +8,14 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
 
+        // Special Action: Reset Database (Wipe all signals)
+        if (body.action === 'reset') {
+            const stmt = db.prepare('DELETE FROM signals');
+            stmt.run();
+            console.log("Database Reset Requested via POST");
+            return NextResponse.json({ success: true, message: "All signals cleared via POST" });
+        }
+
         // Validate the incoming signal data
         if (!body.symbol || !body.status) {
             return NextResponse.json({ error: "Invalid signal format" }, { status: 400 });
