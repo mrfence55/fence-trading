@@ -1016,30 +1016,14 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
 
         # Handle Breakeven
         elif status == "BREAKEVEN":
-            # Only update to Breakeven if we haven't hit any TPs yet
-            if current_hits == 0:
-                # Get Alias
-                config = CHANNELS_CONFIG.get(r["chat_id"])
-                channel_name = config["alias"] if config else (r["chat_title"] or "Unknown")
-
-                await send_to_website({
-                    "symbol": symbol,
-                    "type": side.upper(),
-                    "status": "BREAKEVEN",
-                    "pips": 0,
-                    "tp_level": current_hits, # Keep current TP level if any
-                    "channel_id": r["chat_id"],
-                    "channel_name": channel_name,
-                    "risk_pips": 0,
-                    "reward_pips": 0,
-                    "rr_ratio": 0,
-                    "profit": 0, # Explicit $0
-                    "open_time": datetime.fromtimestamp(r["created_at"], tz=timezone.utc).isoformat()
-                })
-                print(f"Telegram Update: {symbol} Moved to BREAKEVEN")
-                reply_action_text = "🛡️ **Breakeven** (Entry Secured)"
-            else:
-                 print(f"DEBUG: Ignoring Breakeven for {symbol} because TP{current_hits} was already hit.")
+            # UPDATE: User requested to IGNORE Breakeven updates on the website.
+            # "ether it hit some tp or it go to sl befor it hit tp"
+            # So we print it for logs, but DO NOT send to website.
+            print(f"Telegram Update: {symbol} Moved to BREAKEVEN (Ignored for Website)")
+            reply_action_text = "🛡️ **Breakeven** (Entry Secured)"
+            
+            # Skip website update
+            pass
 
         # Handle SL/Close
         elif status:
