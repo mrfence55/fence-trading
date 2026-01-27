@@ -28,7 +28,7 @@ API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 # Source Channels and their Targets
 # Source Channels and their Targets
 # FORUM GROUP ID: Fence Trading
-FORUM_GROUP_ID = -1002083880162
+FORUM_GROUP_ID = -1003713831351
 
 CHANNELS_CONFIG = {
     -1002154812244: {"alias": "Fence - Aurora",   "target_id": -1003369420967, "topic_id": 2,  "type": "GOLD"},  # The Gold Complex -> Fence Aurora
