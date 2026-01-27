@@ -45,30 +45,51 @@ async def main():
                  print(f" - {dialog.name} (ID: {dialog.id})")
         return
 
-    # 3. Get Topics
-    print(f"\nScanning Topics in '{target_group.name}'...")
+    # 3. Get Topics (Robust Scan Method)
+    print(f"\nScanning recent messages in '{target_group.name}' to find Topics...")
+    print("This might take 10-20 seconds...")
+    topics_found = {}
+
     try:
-        # Note: GetForumTopicsRequest might fetch in batches, but limit=100 is usually enough for manual setup
-        result = await client(GetForumTopicsRequest(
-            channel=target_group.entity, 
-            q="", 
-            offset_date=None, 
-            offset_id=0, 
-            offset_topic=0, 
-            limit=100
-        ))
+        # Scan last 500 messages to see where they were sent
+        async for message in client.iter_messages(target_group.entity, limit=500):
+            # Check if message belongs to a topic
+            if message.reply_to and message.reply_to.forum_topic:
+                topic_id = message.reply_to.reply_to_msg_id
+                
+                # If we haven't seen this topic yet, try to fetch its name
+                if topic_id not in topics_found:
+                    try:
+                        # Try to get the first message of the topic which contains the title
+                        # or just store "Topic {id}" if we can't find it
+                        topic_start_msg = await client.get_messages(target_group.entity, ids=topic_id)
+                        
+                        if topic_start_msg and topic_start_msg.action:
+                             # usually MessageActionTopicCreate
+                             if hasattr(topic_start_msg.action, 'title'):
+                                 topics_found[topic_id] = topic_start_msg.action.title
+                             else:
+                                 topics_found[topic_id] = f"Topic {topic_id} (No Title)"
+                        else:
+                             topics_found[topic_id] = f"Topic {topic_id} (Unknown Title)"
+                             
+                    except Exception:
+                        topics_found[topic_id] = f"Topic {topic_id}"
         
         print("\n=== TOPIC LIST (COPY THESE IDs) ===")
         print(f"Group ID: {target_group.id}")
         print("-" * 40)
-        for topic in result.topics:
-            print(f"Topic: {topic.title}")
-            print(f"ID:    {topic.id}")
+        
+        if not topics_found:
+             print("No topics found in the last 500 messages. Send a message in each topic and try again.")
+        
+        for t_id, t_name in topics_found.items():
+            print(f"Topic: {t_name}")
+            print(f"ID:    {t_id}")
             print("-" * 40)
             
     except Exception as e:
-        print(f"Error fetching topics: {e}")
-        print("Make sure the group is actually a Forum (Supergroup with Topics enabled).")
+        print(f"Error scanning messages: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
