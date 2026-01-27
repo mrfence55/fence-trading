@@ -26,12 +26,16 @@ API_ID   = 27308955
 API_HASH = "12c8d6da1b61b738ba1d28b892452783"
 
 # Source Channels and their Targets
+# Source Channels and their Targets
+# FORUM GROUP ID: Fence Trading
+FORUM_GROUP_ID = -1002083880162
+
 CHANNELS_CONFIG = {
-    -1002154812244: {"alias": "Fence - Aurora",   "target_id": -1003369420967, "type": "GOLD"},  # The Gold Complex -> Fence Aurora
-    -1001220837618: {"alias": "Fence - Odin",     "target_id": -1003396317717, "type": "FOREX"}, # TFXC PREMIUM -> Fence Odin
-    -1001239815745: {"alias": "Fence - Main",     "target_id": -1003330700210, "type": "FOREX"}, # Fredtrading -> Fence Main
-    -1002208969496: {"alias": "Fence - Crypto",   "target_id": -1003368566412, "type": "CRYPTO"},# Fred Crypto -> Fence Crypto
-    -1001979286278: {"alias": "Fence - Live / Indices", "target_id": -1003437413343, "type": "INDICES"} # Fred Live -> Fence Live / Indices
+    -1002154812244: {"alias": "Fence - Aurora",   "target_id": -1003369420967, "topic_id": 2,  "type": "GOLD"},  # The Gold Complex -> Fence Aurora
+    -1001220837618: {"alias": "Fence - Odin",     "target_id": -1003396317717, "topic_id": 6,  "type": "FOREX"}, # TFXC PREMIUM -> Fence Odin
+    -1001239815745: {"alias": "Fence - Main",     "target_id": -1003330700210, "topic_id": 12, "type": "FOREX"}, # Fredtrading -> Fence Main
+    -1002208969496: {"alias": "Fence - Crypto",   "target_id": -1003368566412, "topic_id": 7,  "type": "CRYPTO"},# Fred Crypto -> Fence Crypto
+    -1001979286278: {"alias": "Fence - Live / Indices", "target_id": -1003437413343, "topic_id": 8, "type": "INDICES"} # Fred Live -> Fence Live / Indices
 }
 TARGET_CHAT_IDS = list(CHANNELS_CONFIG.keys())
 
@@ -871,6 +875,16 @@ async def on_new_signal(evt: events.NewMessage.Event):
             rec["target_chat_id"] = target_id
             rec["target_msg_id"] = sent_msg.id
             print(f"Forwarded new signal to {alias}: {rec['symbol']}")
+
+            # --- FORUM TOPIC FORWARDING ---
+            topic_id = config.get("topic_id")
+            if topic_id and FORUM_GROUP_ID:
+                try:
+                    await client.send_message(FORUM_GROUP_ID, smart_text, reply_to=topic_id)
+                    print(f"Forwarded to Forum Topic {topic_id} in {FORUM_GROUP_ID}")
+                except Exception as e_forum:
+                    print(f"Failed to forward to Forum Topic {topic_id}: {e_forum}")
+            # ------------------------------
             
             # Send NEW signal to website (for upsert/deduplication)
             try:
