@@ -123,7 +123,7 @@ def _num(s: str) -> float:
 
 # ---------- Parser ----------
 SIG_RX_CLASSIC = re.compile(
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
+    r'(?P<symbol>[A-Za-z]{6}\b|[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
     r'(?P<side>LONG|SHORT)\b.*?'
     r'(?:entry|entry\s*price|ep|enter|entry\s*at)[^\d]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)'
@@ -135,7 +135,7 @@ SIG_RX_CLASSIC = re.compile(
 )
 SIG_RX_BUYSELL = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})'
+    r'(?P<symbol>[A-Za-z]{6}\b|[A-Za-z]{3,5}/?[A-Za-z]{3})'
     r'.*?(?:entry|entry\s*at|entry\s*price|ep|enter)[^\d]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
@@ -145,7 +145,7 @@ SIG_RX_BUYSELL = re.compile(
     re.IGNORECASE | re.DOTALL
 )
 SIG_RX_SYMBOL_BUYSELL = re.compile(
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\b'
+    r'(?P<symbol>[A-Za-z]{6}\b|[A-Za-z]{3,5}/?[A-Za-z]{3})\b'
     r'.{0,40}?\b(?P<side_word>BUY|SELL|LONG|SHORT)\s*(?:NOW)?\b'
     r'.*?(?:entry|entry\s*at|entry\s*price|ep|enter)[^\d]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:sl|stop\s*loss)[:\s]*?(?P<sl>[-+]?\d*[\,\.]?\d+)'
@@ -158,7 +158,7 @@ SIG_RX_SYMBOL_BUYSELL = re.compile(
 
 SIG_RX_SIMPLE = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
+    r'(?P<symbol>[A-Za-z]{6}\b|[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
     r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
     r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
@@ -170,7 +170,7 @@ SIG_RX_SIMPLE = re.compile(
 
 SIG_RX_SIMPLE_IMPLICIT = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
+    r'(?P<symbol>[A-Za-z]{6}\b|[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
     r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)',
     re.IGNORECASE | re.DOTALL
@@ -178,7 +178,7 @@ SIG_RX_SIMPLE_IMPLICIT = re.compile(
 
 SIG_RX_IMPLICIT_ENTRY = re.compile(
     r'(?P<side_word>BUY|SELL)\s+'
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
+    r'(?P<symbol>[A-Za-z]{6}\b|[A-Za-z]{3,5}/?[A-Za-z]{3})\s+'
     r'(?P<entry>[-+]?\d*[\,\.]?\d+)'
     r'.*?(?:tp1|tp\s*1|take\s*profit\s*1)[:=\s]*?(?P<tp1>[-+]?\d*[\,\.]?\d+)'
     r'(?:.*?(?:tp2|tp\s*2|take\s*profit\s*2)[:=\s]*?(?P<tp2>[-+]?\d*[\,\.]?\d+))?'
@@ -189,7 +189,7 @@ SIG_RX_IMPLICIT_ENTRY = re.compile(
 
 # NEW: Flexible Regex for Crypto (allows words like "Scalp", "Swing" between Symbol and Side)
 SIG_RX_CRYPTO_FLEXIBLE = re.compile(
-    r'(?P<symbol>[A-Za-z]{3,5}/?[A-Za-z]{3})\b'
+    r'(?P<symbol>[A-Za-z]{6}\b|[A-Za-z]{3,5}/?[A-Za-z]{3})\b'
     r'.{0,25}?' # Allow filler words (Scalp, Swing, etc)
     r'(?P<side>LONG|SHORT)\b.*?'
     r'(?:entry|entry\s*price|ep|enter|entry\s*at)[^\d]*?(?P<entry>[-+]?\d*[\,\.]?\d+)'
