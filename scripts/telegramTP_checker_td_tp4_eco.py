@@ -204,12 +204,13 @@ SIG_RX_CRYPTO_FLEXIBLE = re.compile(
 def _sanitize_levels(side: str, entry: float, sl: float, tps_in: List[Optional[float]]) -> Tuple[Optional[float], List[float], str]:
     note = ""
     sl_ok: Optional[float] = sl
-    if side == "long":
-        if not (sl < entry - EPS):
-            sl_ok = None; note += "SL ignorert (ikke under entry for LONG). "
-    else:
-        if not (sl > entry + EPS):
-            sl_ok = None; note += "SL ignorert (ikke over entry for SHORT). "
+    if sl is not None:
+        if side == "long":
+            if not (sl < entry - EPS):
+                sl_ok = None; note += "SL ignorert (ikke under entry for LONG). "
+        else:
+            if not (sl > entry + EPS):
+                sl_ok = None; note += "SL ignorert (ikke over entry for SHORT). "
 
     tps: List[float] = []
     for tp in tps_in:
@@ -270,7 +271,8 @@ def parse_signal_text(text: str) -> Optional[Dict[str, Any]]:
 
     if not sym.strip(): return None
     try:
-        entry=_num(d["entry"]); sl=_num(d["sl"])
+        entry=_num(d["entry"])
+        sl = _num(d["sl"]) if d.get("sl") else None
         tp1=_num(d["tp1"]) if d.get("tp1") else None
         tp2=_num(d["tp2"]) if d.get("tp2") else None
         tp3=_num(d["tp3"]) if d.get("tp3") else None
@@ -930,8 +932,10 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
     elif "tp4" in text or "tp 4" in text: new_hits = 4
     
     # Breakeven / SL Entry detection
+    # Matches: "SL Entry", "SL moved to entry", "Stop at entry", "Breakeven"
     elif ("breakeven" in text or "break even" in text or "be" in text.split() or 
-          ("entry" in text and ("sl" in text or "stop" in text))):
+          ("entry" in text and ("sl" in text or "stop" in text)) or
+          ("risk" in text and "free" in text)): # e.g. "Risk free"
         status = "BREAKEVEN"
         
     elif "sl hit" in text or "stop loss" in text:
