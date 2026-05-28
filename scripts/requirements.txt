@@ -1,0 +1,8 @@
+playwright
+telethon
+aiosqlite
+playwright
+telethon
+aiosqlite
+python-dotenv
+discord.py

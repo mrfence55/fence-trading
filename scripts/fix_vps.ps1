@@ -1,0 +1,53 @@
+
+Write-Host "--- FENCE TRADING VPS AUTO-FIX ---" -ForegroundColor Cyan
+
+# 1. GIT RESET
+Write-Host "1. Resetting Codebase..." -ForegroundColor Yellow
+git fetch --all
+git reset --hard origin/main
+
+# 2. PM2 STOP & KILL PYTHON
+Write-Host "2. Stopping Processes..." -ForegroundColor Yellow
+pm2 delete all
+taskkill /F /IM python.exe /T 2>$null
+taskkill /F /IM node.exe /T 2>$null
+Start-Sleep -Seconds 3
+
+# 3. CLEANUP
+Write-Host "3. Cleaning up old files..." -ForegroundColor Yellow
+# Unblock DB - VERIFY DELETE
+Remove-Item signals.db -Force -ErrorAction SilentlyContinue
+if (Test-Path "signals.db") {
+    Write-Warning "Could not delete signals.db. It might be locked. Attempting rename..."
+    Rename-Item signals.db "signals.db.old" -ErrorAction SilentlyContinue
+}
+# Remove bad env
+Remove-Item fenceWeb.env -Force -ErrorAction SilentlyContinue
+# Remove potentially corrupted node_modules (CRITICAL FOR CLEAN BUILD)
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue
+Remove-Item package-lock.json -ErrorAction SilentlyContinue
+
+# 4. ENV SETUP
+Write-Host "4. Setting up Environment..." -ForegroundColor Yellow
+$token = Read-Host "Please paste your DISCORD_BOT_TOKEN (Right-click to paste)"
+if ($token -eq "") {
+    Write-Error "Token cannot be empty!"
+    exit
+}
+$envContent = "DISCORD_BOT_TOKEN=$token"
+# FORCE UTF-8 NO BOM
+$utf8 = New-Object System.Text.UTF8Encoding $False
+[System.IO.File]::WriteAllText("$PWD\fenceWeb.env", $envContent, $utf8)
+Write-Host "Env file created." -ForegroundColor Green
+
+# 5. INSTALL & BUILD
+Write-Host "5. Installing Dependencies..." -ForegroundColor Yellow
+npm install
+npm list react
+
+Write-Host "6. Starting in DEV MODE (Bypassing Build)..." -ForegroundColor Green
+# 6. START
+pm2 start ecosystem.config.js
+pm2 save
+pm2 logs --lines 20

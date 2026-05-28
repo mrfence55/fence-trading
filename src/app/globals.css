@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Premium Dark Theme Palette */
+  --background: #0B0F19;
+  /* Deep Navy */
+  --foreground: #F8FAFC;
+  /* Slate 50 */
+
+  --primary: #06B6D4;
+  /* Cyan 500 */
+  --primary-foreground: #000000;
+
+  --accent: #F59E0B;
+  /* Amber 500 (Gold-ish) */
+  --accent-foreground: #000000;
+
+  --card: #111827;
+  /* Gray 900 */
+  --card-foreground: #F8FAFC;
+
+  --muted: #1E293B;
+  /* Slate 800 */
+  --muted-foreground: #94A3B8;
+  /* Slate 400 */
+
+  --border: #1E293B;
+}
+
+
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

@@ -1,0 +1,54 @@
+module.exports = {
+    apps: [
+        {
+            name: 'fence-web',
+            script: 'node_modules/next/dist/bin/next',
+            args: 'start',
+            cwd: './', // Run from the root directory
+            env: {
+                NODE_ENV: 'production',
+                PORT: 3000,
+                HOSTNAME: '0.0.0.0'
+            }
+        },
+        {
+            name: 'fence-bot',
+            script: 'scripts/telegramTP_checker_td_tp4_eco.py',
+            interpreter: process.platform === 'win32' ? 'python' : 'python3', // 'python' on Windows, 'python3' on Mac/Linux
+            cwd: './',
+            restart_delay: 5000, // Wait 5s before restarting if it crashes
+            env: {
+                PYTHONUNBUFFERED: '1' // Ensure logs are shown immediately
+            }
+        },
+        {
+            name: 'fence-affiliate',
+            script: 'scripts/affiliate_verifier.py',
+            interpreter: process.platform === 'win32' ? 'python' : 'python3',
+            cwd: './',
+            env: {
+                PYTHONUNBUFFERED: '1'
+            }
+        },
+        {
+            name: 'fence-relay',
+            script: 'scripts/fence_relay_v3.py',
+            interpreter: process.platform === 'win32' ? 'python' : 'python3',
+            cwd: './',
+            restart_delay: 5000,
+            env: {
+                PYTHONUNBUFFERED: '1'
+            }
+        },
+        {
+            name: 'fence-admin',
+            script: 'scripts/bot_admin_service.py',
+            interpreter: process.platform === 'win32' ? 'python' : 'python3',
+            cwd: './',
+            restart_delay: 5000,
+            env: {
+                PYTHONUNBUFFERED: '1'
+            }
+        }
+    ]
+};

@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fence Trading — Premium Trading Signals & Copy Trading</title>
+  <meta name="description" content="Få tilgang til premium handelssignaler, automatisk copy trading og en eksklusiv community av vinnende tradere. Registrer deg med Trade Nation og få øyeblikkelig tilgang." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── DESIGN TOKENS ─────────────────────────────────────────── */
+    :root {
+      --bg:            #080C14;
+      --bg2:           #0D1420;
+      --bg3:           #111827;
+      --border:        rgba(255,255,255,0.07);
+      --border-glow:   rgba(6,182,212,0.25);
+      --primary:       #06B6D4;
+      --primary-dim:   rgba(6,182,212,0.12);
+      --primary-glow:  rgba(6,182,212,0.35);
+      --accent:        #D4AF37;
+      --accent-dim:    rgba(212,175,55,0.12);
+      --green:         #10B981;
+      --green-dim:     rgba(16,185,129,0.12);
+      --red:           #EF4444;
+      --red-dim:       rgba(239,68,68,0.12);
+      --purple:        #8B5CF6;
+      --text:          #F1F5F9;
+      --text-muted:    #94A3B8;
+      --text-faint:    #475569;
+      --radius:        14px;
+      --radius-sm:     8px;
+      --radius-xl:     22px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+
+    /* ─── UTILITIES ─────────────────────────────────────────────── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 999px; font-size: 12px;
+      font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    }
+    .tag-primary { background: var(--primary-dim); color: var(--primary); border: 1px solid var(--border-glow); }
+    .tag-accent  { background: var(--accent-dim);  color: var(--accent);  border: 1px solid rgba(212,175,55,0.25); }
+    .tag-green   { background: var(--green-dim);   color: var(--green);   }
+    .tag-red     { background: var(--red-dim);     color: var(--red);     }
+
+    .section-label {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--primary); margin-bottom: 16px;
+    }
+    .section-label::before {
+      content: ''; width: 24px; height: 2px; background: var(--primary);
+      border-radius: 2px;
+    }
+
+    h1, h2, h3, h4 { font-weight: 800; line-height: 1.15; }
+    h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); }
+    h2 { font-size: clamp(1.8rem, 4vw, 3rem); }
+    h3 { font-size: 1.25rem; font-weight: 700; }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--primary) 0%, #38BDF8 40%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .glass {
+      background: rgba(13,20,32,0.6);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+    }
+    .glass-card {
+      background: rgba(17,24,39,0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: border-color .25s, transform .25s, box-shadow .25s;
+    }
+    .glass-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-3px);
+      box-shadow: 0 20px 60px rgba(6,182,212,0.08);
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 28px; border-radius: var(--radius-sm); font-weight: 700;
+      font-size: 15px; cursor: pointer; border: none; transition: all .2s;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: var(--primary); color: #000;
+      box-shadow: 0 0 30px var(--primary-glow);
+    }
+    .btn-primary:hover { background: #22D3EE; box-shadow: 0 0 50px rgba(6,182,212,0.5); transform: translateY(-1px); }
+    .btn-outline {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border); 
+    }
+    .btn-outline:hover { border-color: var(--border-glow); background: var(--primary-dim); }
+    .btn-accent {
+      background: linear-gradient(135deg, #D4AF37, #B8962E);
+      color: #000;
+      box-shadow: 0 0 30px rgba(212,175,55,0.3);
+    }
+    .btn-accent:hover { transform: translateY(-1px); box-shadow: 0 0 50px rgba(212,175,55,0.45); }
+
+    /* ─── NAV ───────────────────────────────────────────────────── */
+    #nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      transition: background .3s, box-shadow .3s;
+      padding: 0;
+    }
+    #nav.scrolled {
+      background: rgba(8,12,20,0.9);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 1px 0 var(--border);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 68px; gap: 32px;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--primary), #0369A1);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+    .logo-icon svg { width: 20px; height: 20px; fill: #fff; }
+    .nav-logo span { color: var(--primary); }
+
+    .nav-links {
+      display: flex; align-items: center; gap: 8px;
+      list-style: none;
+    }
+    .nav-links a {
+      padding: 7px 14px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 500; color: var(--text-muted);
+      transition: color .2s, background .2s;
+    }
+    .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .nav-live {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 700; color: var(--red);
+      letter-spacing: .08em; text-transform: uppercase;
+    }
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); box-shadow:0 0 0 0 rgba(239,68,68,.4); }
+      50%      { opacity:.8; transform:scale(1.1); box-shadow:0 0 0 5px rgba(239,68,68,0); }
+    }
+    .nav-cta-group { display: flex; align-items: center; gap: 10px; }
+    .mobile-menu-btn {
+      display: none; background: none; border: none; cursor: pointer;
+      color: var(--text); padding: 6px;
+    }
+
+    /* ─── TICKER ────────────────────────────────────────────────── */
+    .ticker-bar {
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      overflow: hidden; position: relative; height: 44px;
+      display: flex; align-items: center;
+    }
+    .ticker-fade-l, .ticker-fade-r {
+      position: absolute; top:0; bottom:0; width: 80px; z-index: 2; pointer-events: none;
+    }
+    .ticker-fade-l { left:0; background:linear-gradient(to right, var(--bg2), transparent); }
+    .ticker-fade-r { right:0; background:linear-gradient(to left, var(--bg2), transparent); }
+    .ticker-track {
+      display: flex; gap: 0; white-space: nowrap;
+      animation: ticker 40s linear infinite;
+    }
+    .ticker-track:hover { animation-play-state: paused; }
+    @keyframes ticker {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .tick-item {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 0 20px; font-size: 13px; border-right: 1px solid var(--border);
+    }
+    .tick-pair { font-weight: 700; font-size: 12px; letter-spacing: .04em; }
+    .tick-pips { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; }
+    .tick-tp  { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+    /* ─── HERO ──────────────────────────────────────────────────── */
+    #hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; justify-content: center;
+      position: relative; overflow: hidden; padding-top: 140px; padding-bottom: 80px;
+    }
+    .hero-orb {
+      position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none;
+      animation: orb-float 8s ease-in-out infinite;
+    }
+    .orb-1 { width:600px; height:600px; background:radial-gradient(circle, rgba(6,182,212,0.12), transparent 70%); top:-200px; right:-100px; }
+    .orb-2 { width:500px; height:500px; background:radial-gradient(circle, rgba(212,175,55,0.08), transparent 70%); bottom:-100px; left:-150px; animation-delay:-4s; }
+    .orb-3 { width:300px; height:300px; background:radial-gradient(circle, rgba(139,92,246,0.07), transparent 70%); top:40%; left:50%; animation-delay:-2s; }
+    @keyframes orb-float {
+      0%,100% { transform:translateY(0) scale(1); }
+      50%      { transform:translateY(-30px) scale(1.05); }
+    }
+
+    .hero-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
+    }
+    .hero-eyebrow { display:flex; align-items:center; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+    .hero-badge {
+      display:inline-flex; align-items:center; gap:8px;
+      background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.05));
+      border: 1px solid rgba(212,175,55,0.3); border-radius: 999px;
+      padding: 6px 14px; font-size: 12px; font-weight: 700;
+      color: var(--accent); letter-spacing: .06em; text-transform: uppercase;
+    }
+    .hero-h1 { margin-bottom: 24px; }
+    .hero-sub {
+      font-size: 18px; color: var(--text-muted); max-width: 520px;
+      line-height: 1.7; margin-bottom: 40px;
+    }
+    .hero-cta { display:flex; gap:14px; flex-wrap:wrap; margin-bottom: 48px; }
+    .hero-stats {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 20px;
+      padding-top: 32px; border-top: 1px solid var(--border);
+    }
+    .hero-stat-num {
+      font-size: 2rem; font-weight: 800; font-family:'JetBrains Mono',monospace;
+      color: var(--primary); line-height: 1;
+    }
+    .hero-stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+
+    /* Hero right: live signal card */
+    .hero-card-wrap { position: relative; }
+    .hero-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius-xl); padding: 28px; position: relative; overflow: hidden;
+    }
+    .hero-card::before {
+      content:''; position:absolute; inset:0; border-radius:inherit;
+      background: linear-gradient(135deg, rgba(6,182,212,0.04), transparent 60%);
+      pointer-events:none;
+    }
+    .card-header {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;
+    }
+    .card-title { font-size: 13px; font-weight: 700; color: var(--text-muted); letter-spacing:.06em; text-transform:uppercase; }
+    .signal-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .signal-row:last-child { border-bottom: none; }
+    .sig-pair { font-weight: 700; font-size: 15px; letter-spacing:.04em; }
+    .sig-dir {
+      padding: 3px 10px; border-radius: 5px; font-size: 11px; font-weight: 800; letter-spacing:.08em;
+    }
+    .sig-dir.buy  { background:var(--green-dim); color:var(--green); }
+    .sig-dir.sell { background:var(--red-dim); color:var(--red); }
+    .sig-tp { font-size: 13px; color: var(--primary); font-weight: 600; font-family:monospace; }
+    .sig-pips { font-size: 14px; font-weight: 700; font-family:'JetBrains Mono',monospace; color:var(--green); }
+    .sig-pips.neg { color:var(--red); }
+
+    .floating-badge {
+      position:absolute; background:var(--bg3); border:1px solid var(--border);
+      border-radius:12px; padding:12px 16px; display:flex; align-items:center; gap:10px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: float-badge 5s ease-in-out infinite;
+    }
+    .fb-1 { top:-20px; right:-30px; animation-delay:0s; }
+    .fb-2 { bottom:-20px; left:-30px; animation-delay:-2.5s; }
+    @keyframes float-badge { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+    .fb-icon { width:38px;height:38px;border-radius:9px; display:flex;align-items:center;justify-content:center; }
+    .fb-green { background:var(--green-dim); }
+    .fb-accent { background:var(--accent-dim); }
+    .fb-num { font-size:18px;font-weight:800;font-family:monospace;line-height:1; }
+    .fb-label { font-size:11px;color:var(--text-muted);font-weight:500;margin-top:2px; }
+
+    /* ─── HOW IT WORKS ──────────────────────────────────────────── */
+    #how { padding: 100px 0; background: var(--bg2); }
+    .steps-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; margin-top:60px; }
+    .step-card {
+      padding:28px 24px; border-radius:var(--radius); position:relative; overflow:hidden;
+    }
+    .step-num {
+      font-size:60px; font-weight:900; font-family:'JetBrains Mono',monospace;
+      color:rgba(255,255,255,0.04); position:absolute; top:-8px; right:12px; line-height:1;
+      pointer-events:none;
+    }
+    .step-icon {
+      width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+      margin-bottom:20px;
+    }
+    .step-icon svg { width:26px;height:26px; }
+    .si-blue  { background:var(--primary-dim); }
+    .si-gold  { background:var(--accent-dim); }
+    .si-green { background:var(--green-dim); }
+    .si-purple{ background:rgba(139,92,246,0.12); }
+    .si-blue svg  { color:var(--primary); }
+    .si-gold svg  { color:var(--accent); }
+    .si-green svg { color:var(--green); }
+    .si-purple svg{ color:var(--purple); }
+    .step-h { font-size:17px;font-weight:700;margin-bottom:10px; }
+    .step-p { font-size:14px;color:var(--text-muted);line-height:1.6; }
+    .step-connector {
+      position:absolute; top:50px; right:-12px; width:24px;height:2px;
+      background: linear-gradient(to right, var(--primary), transparent);
+    }
+
+    /* ─── PERFORMANCE ───────────────────────────────────────────── */
+    #performance { padding:100px 0; }
+    .perf-header { text-align:center; margin-bottom:64px; }
+    .perf-header p { color:var(--text-muted); font-size:18px; max-width:600px; margin:16px auto 0; }
+
+    .stats-row {
+      display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:60px;
+    }
+    .stat-card {
+      padding:32px 24px; border-radius:var(--radius); text-align:center;
+    }
+    .stat-icon { margin:0 auto 16px; width:52px;height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center; }
+    .stat-num {
+      font-size:2.8rem;font-weight:900;font-family:'JetBrains Mono',monospace;
+      line-height:1; margin-bottom:6px;
+    }
+    .stat-label { font-size:13px;color:var(--text-muted);font-weight:500;margin-bottom:8px; }
+    .stat-sub { font-size:11px;font-weight:600;padding:3px 12px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--text-faint); display:inline-block; }
+
+    /* ─── SIGNAL FEED ───────────────────────────────────────────── */
+    .feed-grid { display:grid;grid-template-columns:1fr 1fr;gap:20px; }
+    .feed-card {
+      padding:20px; border-radius:var(--radius); display:flex;align-items:center;gap:16px;
+    }
+    .feed-pair-block { min-width:80px; }
+    .feed-pair { font-size:16px;font-weight:800;letter-spacing:.04em; }
+    .feed-time { font-size:11px;color:var(--text-faint);margin-top:3px;font-family:monospace; }
+    .feed-dir { padding:4px 12px;border-radius:6px;font-size:12px;font-weight:800;letter-spacing:.08em; }
+    .feed-meta { flex:1;display:flex;flex-direction:column;gap:4px; }
+    .feed-tp-row { display:flex;gap:6px; }
+    .feed-tp { font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600; }
+    .tp-hit    { background:var(--green-dim);color:var(--green); }
+    .tp-miss   { background:rgba(255,255,255,0.04);color:var(--text-faint); }
+    .tp-active { background:var(--primary-dim);color:var(--primary); }
+    .feed-result { font-size:18px;font-weight:800;font-family:monospace;text-align:right;min-width:80px; }
+
+    /* ─── PERSONA SECTION ───────────────────────────────────────── */
+    #personas { padding:100px 0; background: var(--bg2); }
+    .persona-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:60px; }
+    .persona-card {
+      padding:36px 28px; border-radius:var(--radius-xl); cursor:pointer;
+      transition: all .3s;
+    }
+    .persona-card:hover { transform:translateY(-4px); }
+    .persona-avatar {
+      width:60px;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+      margin-bottom:20px; font-size:28px;
+    }
+    .persona-h { font-size:20px;font-weight:800;margin-bottom:10px; }
+    .persona-p { font-size:14px;color:var(--text-muted);line-height:1.65;margin-bottom:20px; }
+    .persona-list { list-style:none;display:flex;flex-direction:column;gap:8px; }
+    .persona-list li {
+      font-size:13px;color:var(--text-muted);display:flex;align-items:flex-start;gap:8px;
+    }
+    .persona-list li::before { content:'✓';color:var(--green);font-weight:700;flex-shrink:0;margin-top:1px; }
+    .pc-blue   { background:linear-gradient(135deg,rgba(6,182,212,0.08),rgba(6,182,212,0.02)); border:1px solid rgba(6,182,212,0.15); }
+    .pc-gold   { background:linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.02)); border:1px solid rgba(212,175,55,0.15); }
+    .pc-purple { background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(139,92,246,0.02)); border:1px solid rgba(139,92,246,0.15); }
+    .pa-blue   { background:var(--primary-dim); }
+    .pa-gold   { background:var(--accent-dim); }
+    .pa-purple { background:rgba(139,92,246,0.12); }
+
+    /* ─── BROKER ────────────────────────────────────────────────── */
+    #broker { padding:100px 0; }
+    .broker-grid { display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;margin-top:60px; }
+    .broker-logo-box {
+      background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(212,175,55,0.04));
+      border: 1px solid var(--border-glow); border-radius:var(--radius-xl);
+      padding:48px; text-align:center; margin-bottom:32px;
+    }
+    .broker-name { font-size:2.2rem;font-weight:900;letter-spacing:-.02em;margin-bottom:8px; }
+    .broker-name span { color:var(--primary); }
+    .broker-sub { font-size:14px;color:var(--text-muted); }
+    .broker-trust { display:flex;gap:12px;flex-wrap:wrap; }
+    .trust-badge {
+      display:flex;align-items:center;gap:8px;
+      background:rgba(255,255,255,0.04);border:1px solid var(--border);
+      border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:600;
+    }
+    .trust-badge svg { width:18px;height:18px;color:var(--primary);flex-shrink:0; }
+    .broker-features { display:flex;flex-direction:column;gap:20px; }
+    .broker-feat {
+      display:flex;gap:16px;padding:20px;border-radius:var(--radius);
+      background:var(--bg2);border:1px solid var(--border);
+      transition: border-color .2s;
+    }
+    .broker-feat:hover { border-color:var(--border-glow); }
+    .bf-icon { width:48px;height:48px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center; }
+    .bf-icon svg { width:22px;height:22px; }
+    .bf-h { font-size:15px;font-weight:700;margin-bottom:5px; }
+    .bf-p { font-size:13px;color:var(--text-muted);line-height:1.55; }
+
+    /* ─── MEMBERSHIP ────────────────────────────────────────────── */
+    #membership { padding:100px 0; background: var(--bg2); }
+    .pricing-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:60px; }
+    .pricing-card {
+      border-radius:var(--radius-xl); padding:36px 28px; position:relative; overflow:hidden;
+    }
+    .pricing-card.featured {
+      border: 1.5px solid var(--primary) !important;
+      box-shadow: 0 0 60px rgba(6,182,212,0.15);
+    }
+    .pricing-badge {
+      position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+      background:var(--primary);color:#000;font-size:11px;font-weight:800;
+      letter-spacing:.08em;text-transform:uppercase;padding:6px 20px;
+      border-radius: 0 0 12px 12px;
+    }
+    .pricing-tier { font-size:13px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px; }
+    .pricing-price {
+      font-size:2.8rem;font-weight:900;font-family:'JetBrains Mono',monospace;line-height:1;margin-bottom:6px;
+    }
+    .pricing-period { font-size:14px;color:var(--text-muted);margin-bottom:24px; }
+    .pricing-desc { font-size:14px;color:var(--text-muted);line-height:1.6;margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid var(--border); }
+    .pricing-features { list-style:none;display:flex;flex-direction:column;gap:14px;margin-bottom:32px; }
+    .pricing-features li { display:flex;align-items:flex-start;gap:10px;font-size:14px; }
+    .feat-check { width:20px;height:20px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px; }
+    .feat-check.yes { background:var(--green-dim); }
+    .feat-check.no  { background:rgba(255,255,255,0.04); }
+    .feat-check svg { width:12px;height:12px; }
+    .feat-check.yes svg { color:var(--green); }
+    .feat-check.no  svg { color:var(--text-faint); }
+    .feat-text { color:var(--text-muted);line-height:1.4; }
+    .feat-text strong { color:var(--text);font-weight:600; }
+
+    /* ─── TESTIMONIALS ──────────────────────────────────────────── */
+    #testimonials { padding:100px 0; }
+    .testimonials-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:60px; }
+    .testi-card { padding:28px;border-radius:var(--radius); }
+    .testi-stars { display:flex;gap:4px;margin-bottom:16px; }
+    .testi-stars svg { width:16px;height:16px;fill:var(--accent);color:var(--accent); }
+    .testi-quote { font-size:15px;line-height:1.7;color:var(--text-muted);margin-bottom:20px;font-style:italic; }
+    .testi-quote em { color:var(--text);font-style:normal;font-weight:600; }
+    .testi-author { display:flex;align-items:center;gap:12px; }
+    .testi-avatar {
+      width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-size:16px;font-weight:700;flex-shrink:0;
+    }
+    .testi-name { font-size:14px;font-weight:700; }
+    .testi-role { font-size:12px;color:var(--text-muted); }
+
+    /* ─── FAQ ───────────────────────────────────────────────────── */
+    #faq { padding:100px 0; background: var(--bg2); }
+    .faq-list { display:flex;flex-direction:column;gap:12px;margin-top:60px;max-width:800px;margin-left:auto;margin-right:auto; }
+    .faq-item {
+      border-radius:var(--radius); border:1px solid var(--border); overflow:hidden;
+      transition: border-color .2s;
+    }
+    .faq-item.open { border-color:var(--border-glow); }
+    .faq-q {
+      display:flex;justify-content:space-between;align-items:center;
+      padding:22px 24px;cursor:pointer;font-size:16px;font-weight:600;gap:16px;
+      background:var(--bg3); transition:background .2s;
+    }
+    .faq-q:hover { background: rgba(255,255,255,0.02); }
+    .faq-arrow {
+      width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,0.06);
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      transition:transform .3s, background .2s;
+    }
+    .faq-item.open .faq-arrow { transform:rotate(45deg);background:var(--primary-dim); }
+    .faq-arrow svg { width:14px;height:14px;color:var(--primary); }
+    .faq-a {
+      padding:0 24px;max-height:0;overflow:hidden;transition:max-height .4s ease,padding .3s;
+      font-size:15px;color:var(--text-muted);line-height:1.7; background:var(--bg3);
+    }
+    .faq-item.open .faq-a { max-height:300px;padding:0 24px 22px; }
+
+    /* ─── FINAL CTA ─────────────────────────────────────────────── */
+    #cta { padding:120px 0; position:relative;overflow:hidden; }
+    .cta-orb {
+      position:absolute;width:600px;height:600px;border-radius:50%;filter:blur(100px);pointer-events:none;
+      background:radial-gradient(circle,rgba(6,182,212,0.1),transparent 70%);
+      top:50%;left:50%;transform:translate(-50%,-50%);
+    }
+    .cta-inner { text-align:center;position:relative;z-index:1; }
+    .cta-inner h2 { font-size:clamp(2rem,5vw,3.5rem);margin-bottom:20px; }
+    .cta-inner p { font-size:18px;color:var(--text-muted);max-width:600px;margin:0 auto 40px; }
+    .cta-steps {
+      display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:48px;flex-wrap:wrap;
+    }
+    .cta-step {
+      display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 32px;
+    }
+    .cta-step-num {
+      width:44px;height:44px;border-radius:50%;background:var(--primary-dim);border:2px solid var(--border-glow);
+      display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--primary);font-size:16px;
+    }
+    .cta-step-label { font-size:13px;color:var(--text-muted);font-weight:500;text-align:center;max-width:120px; }
+    .cta-step-arrow { font-size:20px;color:var(--border);padding: 0 0 20px; }
+    .cta-btns { display:flex;gap:16px;justify-content:center;flex-wrap:wrap; }
+    .cta-note { font-size:13px;color:var(--text-faint);margin-top:20px; }
+    .cta-note a { color:var(--primary); }
+
+    /* ─── FOOTER ────────────────────────────────────────────────── */
+    footer {
+      background:var(--bg2);border-top:1px solid var(--border);padding:48px 0 32px;
+    }
+    .footer-grid { display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px; }
+    .footer-brand { max-width:280px; }
+    .footer-brand .nav-logo { margin-bottom:16px; }
+    .footer-brand p { font-size:14px;color:var(--text-muted);line-height:1.65; }
+    .footer-col h4 { font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px; }
+    .footer-col ul { list-style:none;display:flex;flex-direction:column;gap:10px; }
+    .footer-col ul a { font-size:14px;color:var(--text-faint);transition:color .2s; }
+    .footer-col ul a:hover { color:var(--text); }
+    .footer-bottom {
+      padding-top:24px;border-top:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+      font-size:13px;color:var(--text-faint);
+    }
+    .footer-disclaimer {
+      font-size:12px;color:var(--text-faint);margin-top:16px;line-height:1.6;
+      padding:16px;background:rgba(255,255,255,0.02);border-radius:var(--radius-sm);
+      border:1px solid var(--border);
+    }
+
+    /* ─── SCROLL ANIMATIONS ─────────────────────────────────────── */
+    .reveal {
+      opacity:0;transform:translateY(30px);
+      transition:opacity .7s cubic-bezier(.22,.68,0,1.2),transform .7s cubic-bezier(.22,.68,0,1.2);
+    }
+    .reveal.visible { opacity:1;transform:none; }
+    .reveal-delay-1 { transition-delay:.1s; }
+    .reveal-delay-2 { transition-delay:.2s; }
+    .reveal-delay-3 { transition-delay:.3s; }
+    .reveal-delay-4 { transition-delay:.4s; }
+
+    /* ─── RESPONSIVE ────────────────────────────────────────────── */
+    @media (max-width:1024px) {
+      .hero-grid { grid-template-columns:1fr; gap:48px; }
+      .steps-grid { grid-template-columns:1fr 1fr; }
+      .step-connector { display:none; }
+      .pricing-grid { grid-template-columns:1fr; max-width:480px; margin-left:auto;margin-right:auto; }
+      .footer-grid { grid-template-columns:1fr 1fr; }
+      .broker-grid { grid-template-columns:1fr; }
+    }
+    @media (max-width:768px) {
+      .stats-row { grid-template-columns:1fr 1fr; }
+      .feed-grid { grid-template-columns:1fr; }
+      .persona-grid { grid-template-columns:1fr; }
+      .testimonials-grid { grid-template-columns:1fr; }
+      .nav-links, .nav-live { display:none; }
+      .mobile-menu-btn { display:flex; }
+      .steps-grid { grid-template-columns:1fr; }
+      .hero-stats { grid-template-columns:1fr 1fr; }
+      .footer-grid { grid-template-columns:1fr; gap:32px; }
+      .footer-brand { max-width:100%; }
+      .cta-step-arrow { display:none; }
+    }
+    @media (max-width:480px) {
+      .stats-row { grid-template-columns:1fr; }
+      .hero-stats { grid-template-columns:1fr; }
+      .hero-cta { flex-direction:column; }
+      .hero-cta .btn { width:100%;text-align:center; }
+    }
+
+    /* ─── MISC ──────────────────────────────────────────────────── */
+    .divider { height:1px;background:linear-gradient(to right,transparent,var(--border) 20%,var(--border) 80%,transparent); }
+    ::selection { background:var(--primary-dim); color:var(--primary); }
+    :focus-visible { outline: 2px solid var(--primary); outline-offset:3px; border-radius:4px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ NAV ═══════════════════════════════ -->
+<header id="nav">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 3v18h18M7 16l4-4 4 4 5-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        </div>
+        Fence<span>Trading</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#how">Kom i gang</a></li>
+          <li><a href="#performance">Resultater</a></li>
+          <li><a href="#broker">Megler</a></li>
+          <li><a href="#membership">Membership</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-cta-group">
+        <span class="nav-live">
+          <span class="pulse-dot"></span>Live signals
+        </span>
+        <a href="https://go.tradenation.com/visit/?bta=36145&brand=tradenation" target="_blank" class="btn btn-primary" style="padding:10px 20px;font-size:14px;">Kom i gang</a>
+      </div>
+
+      <button class="mobile-menu-btn" aria-label="Meny">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════ LIVE TICKER ═══════════════════════════ -->
+<div class="ticker-bar" style="margin-top:68px;">
+  <div class="ticker-fade-l"></div>
+  <div class="ticker-fade-r"></div>
+  <div class="ticker-track" id="tickerTrack">
+    <!-- Items injected twice for seamless loop -->
+  </div>
+</div>
+
+<!-- ═══════════════════════════ HERO ══════════════════════════════ -->
+<section id="hero">
+  <div class="hero-orb orb-1"></div>
+  <div class="hero-orb orb-2"></div>
+  <div class="hero-orb orb-3"></div>
+
+  <div class="container">
+    <div class="hero-grid">
+      <!-- LEFT -->
+      <div>
+        <div class="hero-eyebrow">
+          <span class="hero-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            Premium Signaler
+          </span>
+          <span class="tag tag-primary">Ny – 2026</span>
+        </div>
+
+        <h1 class="hero-h1">
+          Mestre markedene<br/>
+          med <span class="gradient-text">Fence Trading</span>
+        </h1>
+
+        <p class="hero-sub">
+          Eksklusive handelssignaler, automatisk copy trading og et fellesskap av vinnende tradere — alt gratis for deg som registrerer seg via vår megler.
+        </p>
+
+        <div class="hero-cta">
+          <a href="https://go.tradenation.com/visit/?bta=36145&brand=tradenation" target="_blank" class="btn btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+            Start trading nå
+          </a>
+          <a href="#how" class="btn btn-outline">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            Hvordan fungerer det?
+          </a>
+        </div>
+
+        <div class="hero-stats">
+          <div>
+            <div class="hero-stat-num">87%</div>
+            <div class="hero-stat-label">Vinnrate (siste 90 dager)</div>
+          </div>
+          <div>
+            <div class="hero-stat-num">4 200+</div>
+            <div class="hero-stat-label">Aktive tradere</div>
+          </div>
+          <div>
+            <div class="hero-stat-num">12 000+</div>
+            <div class="hero-stat-label">Pips levert 2025</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT – Live signal card -->
+      <div class="hero-card-wrap">
+        <div class="floating-badge fb-1">
+          <div class="fb-icon fb-green">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <div>
+            <div class="fb-num" style="color:var(--green)">+240</div>
+            <div class="fb-label">pips i dag</div>
+          </div>
+        </div>
+
+        <div class="hero-card glass-card">
+          <div class="card-header">
+            <span class="card-title">Live signal feed</span>
+            <span class="tag tag-primary">
+              <span class="pulse-dot"></span> Aktive
+            </span>
+          </div>
+
+          <div class="signal-row">
+            <span class="sig-pair">XAUUSD</span>
+            <span class="sig-dir buy">BUY</span>
+            <span class="sig-tp">TP3 ✓</span>
+            <span class="sig-pips">+80 pips</span>
+          </div>
+          <div class="signal-row">
+            <span class="sig-pair">US30</span>
+            <span class="sig-dir sell">SELL</span>
+            <span class="sig-tp">TP4 ✓</span>
+            <span class="sig-pips">+150 pips</span>
+          </div>
+          <div class="signal-row">
+            <span class="sig-pair">GBPUSD</span>
+            <span class="sig-dir buy">BUY</span>
+            <span class="sig-tp">Aktiv ▶</span>
+            <span class="sig-pips" style="color:var(--primary)">Pågår</span>
+          </div>
+          <div class="signal-row">
+            <span class="sig-pair">BTCUSD</span>
+            <span class="sig-dir buy">BUY</span>
+            <span class="sig-tp">TP4 ✓</span>
+            <span class="sig-pips">+500 pips</span>
+          </div>
+          <div class="signal-row">
+            <span class="sig-pair">NAS100</span>
+            <span class="sig-dir sell">SELL</span>
+            <span class="sig-tp">TP3 ✓</span>
+            <span class="sig-pips">+120 pips</span>
+          </div>
+        </div>
+
+        <div class="floating-badge fb-2">
+          <div class="fb-icon fb-accent">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div>
+            <div class="fb-num" style="color:var(--accent)">4 200+</div>
+            <div class="fb-label">community-membre</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ HOW IT WORKS ══════════════════════════ -->
+<section id="how">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Prosessen</div>
+      <h2>Tre steg til gratis premium-tilgang</h2>
+    </div>
+
+    <div class="steps-grid">
+      <div class="glass-card step-card reveal reveal-delay-1" style="position:relative;">
+        <div class="step-num">01</div>
+        <div class="step-icon si-blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3 class="step-h">Registrer deg</h3>
+        <p class="step-p">Opprett en konto hos Trade Nation via vår affiliate-lenke. Det er gratis og tar under 5 minutter.</p>
+        <div class="step-connector"></div>
+      </div>
+
+      <div class="glass-card step-card reveal reveal-delay-2">
+        <div class="step-num">02</div>
+        <div class="step-icon si-gold">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        </div>
+        <h3 class="step-h">Verifiser registreringen</h3>
+        <p class="step-p">Send oss bevis på registrering via vår verifikasjonside. Vi sjekker og godkjenner innen noen timer.</p>
+        <div class="step-connector"></div>
+      </div>
+
+      <div class="glass-card step-card reveal reveal-delay-3">
+        <div class="step-num">03</div>
+        <div class="step-icon si-green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg>
+        </div>
+        <h3 class="step-h">Få øyeblikkelig tilgang</h3>
+        <p class="step-p">Du får invite til vår private Discord-server med signalkanaler, copy trading og eksklusiv community.</p>
+        <div class="step-connector"></div>
+      </div>
+
+      <div class="glass-card step-card reveal reveal-delay-4">
+        <div class="step-num">04</div>
+        <div class="step-icon si-purple">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3 class="step-h">Følg og tjen</h3>
+        <p class="step-p">Kopier signalene manuelt eller automatisk via copy trading. Følg med på live-resultater i dashboardet.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ PERFORMANCE ═══════════════════════════ -->
+<section id="performance">
+  <div class="container">
+    <div class="perf-header reveal">
+      <div class="section-label">Dokumenterte resultater</div>
+      <h2>Live Performance</h2>
+      <p>Transparente og verifiserbare resultater fra alle signalkanaler. Ingen skjulte tall.</p>
+    </div>
+
+    <div class="stats-row reveal">
+      <div class="glass-card stat-card">
+        <div class="stat-icon" style="background:var(--primary-dim);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        </div>
+        <div class="stat-num" style="color:var(--primary);">12 840</div>
+        <div class="stat-label">Total pips levert</div>
+        <div class="stat-sub">Alle kanaler</div>
+      </div>
+      <div class="glass-card stat-card">
+        <div class="stat-icon" style="background:var(--green-dim);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
+        <div class="stat-num" style="color:var(--green);">87%</div>
+        <div class="stat-label">Vinnrate</div>
+        <div class="stat-sub">Ekskl. breakeven</div>
+      </div>
+      <div class="glass-card stat-card">
+        <div class="stat-icon" style="background:var(--accent-dim);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        </div>
+        <div class="stat-num" style="color:var(--accent);">3</div>
+        <div class="stat-label">Aktive trades</div>
+        <div class="stat-sub">Akkurat nå</div>
+      </div>
+      <div class="glass-card stat-card">
+        <div class="stat-icon" style="background:rgba(139,92,246,0.12);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></svg>
+        </div>
+        <div class="stat-num" style="color:var(--purple);">520</div>
+        <div class="stat-label">Signaler siden jan 25</div>
+        <div class="stat-sub">Alle instrumenter</div>
+      </div>
+    </div>
+
+    <!-- Signal feed preview -->
+    <div class="reveal">
+      <h3 style="margin-bottom:20px;font-size:18px;">Siste signaler</h3>
+      <div class="feed-grid">
+        <div class="glass-card feed-card">
+          <div class="feed-pair-block">
+            <div class="feed-pair">XAUUSD</div>
+            <div class="feed-time">I dag 09:14</div>
+          </div>
+          <span class="feed-dir buy" style="background:var(--green-dim);color:var(--green);">BUY</span>
+          <div class="feed-meta">
+            <div class="feed-tp-row">
+              <span class="feed-tp tp-hit">TP1</span>
+              <span class="feed-tp tp-hit">TP2</span>
+              <span class="feed-tp tp-hit">TP3</span>
+              <span class="feed-tp tp-miss">TP4</span>
+            </div>
+          </div>
+          <div class="feed-result" style="color:var(--green);">+80p</div>
+        </div>
+        <div class="glass-card feed-card">
+          <div class="feed-pair-block">
+            <div class="feed-pair">US30</div>
+            <div class="feed-time">I dag 08:02</div>
+          </div>
+          <span class="feed-dir" style="background:var(--red-dim);color:var(--red);">SELL</span>
+          <div class="feed-meta">
+            <div class="feed-tp-row">
+              <span class="feed-tp tp-hit">TP1</span>
+              <span class="feed-tp tp-hit">TP2</span>
+              <span class="feed-tp tp-hit">TP3</span>
+              <span class="feed-tp tp-hit">TP4</span>
+            </div>
+          </div>
+          <div class="feed-result" style="color:var(--green);">+150p</div>
+        </div>
+        <div class="glass-card feed-card">
+          <div class="feed-pair-block">
+            <div class="feed-pair">GBPUSD</div>
+            <div class="feed-time">I dag 07:30</div>
+          </div>
+          <span class="feed-dir buy" style="background:var(--green-dim);color:var(--green);">BUY</span>
+          <div class="feed-meta">
+            <div class="feed-tp-row">
+              <span class="feed-tp tp-hit">TP1</span>
+              <span class="feed-tp tp-hit">TP2</span>
+              <span class="feed-tp tp-active">TP3 ▶</span>
+              <span class="feed-tp tp-miss">TP4</span>
+            </div>
+          </div>
+          <div class="feed-result" style="color:var(--primary);">+40p</div>
+        </div>
+        <div class="glass-card feed-card">
+          <div class="feed-pair-block">
+            <div class="feed-pair">BTCUSD</div>
+            <div class="feed-time">I går 22:10</div>
+          </div>
+          <span class="feed-dir buy" style="background:var(--green-dim);color:var(--green);">BUY</span>
+          <div class="feed-meta">
+            <div class="feed-tp-row">
+              <span class="feed-tp tp-hit">TP1</span>
+              <span class="feed-tp tp-hit">TP2</span>
+              <span class="feed-tp tp-hit">TP3</span>
+              <span class="feed-tp tp-hit">TP4</span>
+            </div>
+          </div>
+          <div class="feed-result" style="color:var(--green);">+500p</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════ PERSONAS ════════════════════════════ -->
+<section id="personas">
+  <div class="container">
+    <div class="reveal" style="text-align:center;max-width:700px;margin:0 auto 0;">
+      <div class="section-label" style="justify-content:center;"><span>Hvem er dette for?</span></div>
+      <h2>Uansett hvem du er — dette er for deg</h2>
+      <p style="color:var(--text-muted);font-size:17px;margin-top:16px;">Fence Trading er designet for å treffe der du er i din trading-reise.</p>
+    </div>
+
+    <div class="persona-grid">
+      <div class="persona-card pc-blue reveal reveal-delay-1">
+        <div class="persona-avatar pa-blue">🔰</div>
+        <h3 class="persona-h">Den nysgjerrige nybegynneren</h3>
+        <p class="persona-p">Har hørt om Forex, krypto eller aksjer og vil prøve — men vet ikke hvor du skal starte.</p>
+        <ul class="persona-list">
+          <li>Klar-til-bruk signaler, ingen analyse nødvendig</li>
+          <li>Forklaringer på hvert signal med inngang, SL og TP</li>
+          <li>Lær mens du tjener i et aktivt community</li>
+          <li>Risikostyring inkludert i alle signaler</li>
+        </ul>
+      </div>
+
+      <div class="persona-card pc-gold reveal reveal-delay-2">
+        <div class="persona-avatar pa-gold">📈</div>
+        <h3 class="persona-h">Den erfarne tradere</h3>
+        <p class="persona-p">Trader allerede, men vil ha en ekstra edge og bekreftelse på dine egne analyser.</p>
+        <ul class="persona-list">
+          <li>Multi-timeframe analyse fra profesjonelle tradere</li>
+          <li>Tidlig tilgang til high-probability setups</li>
+          <li>Eksklusiv strategi-diskusjon i Discord</li>
+          <li>TradingView indikatorer og scripts</li>
+        </ul>
+      </div>
+
+      <div class="persona-card pc-purple reveal reveal-delay-3">
+        <div class="persona-avatar pa-purple">🤖</div>
+        <h3 class="persona-h">Den passive investoren</h3>
+        <p class="persona-p">Vil ha avkastning uten å sitte foran skjermen hele dagen. Setter og glemmer.</p>
+        <ul class="persona-list">
+          <li>Automatisk copy trading – ingenting å gjøre</li>
+          <li>Alle trades plasseres automatisk på din konto</li>
+          <li>Full risikokontroll og position sizing</li>
+          <li>Månedlig performance-rapport</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════ BROKER ══════════════════════════════ -->
+<section id="broker">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Vår anbefalte megler</div>
+      <h2>Drevet av <span class="gradient-text">Trade Nation</span></h2>
+      <p style="color:var(--text-muted);font-size:17px;margin-top:12px;max-width:600px;">Vi har valgt Trade Nation fordi de kombinerer topp regulering, lav spread og sømløs TradingView-integrasjon.</p>
+    </div>
+
+    <div class="broker-grid">
+      <!-- LEFT -->
+      <div class="reveal">
+        <div class="broker-logo-box">
+          <div class="broker-name">Trade<span>Nation</span></div>
+          <div class="broker-sub">Regulert megler · Klientmidler segregert</div>
+        </div>
+        <div class="broker-trust">
+          <div class="trust-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            FCA Regulert
+          </div>
+          <div class="trust-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Sikre midler
+          </div>
+          <div class="trust-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Lav spread
+          </div>
+          <div class="trust-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            TradingView
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="broker-features reveal">
+        <div class="broker-feat">
+          <div class="bf-icon si-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+          </div>
+          <div>
+            <div class="bf-h">Cloud Trade Execution</div>
+            <div class="bf-p">Ultra-lav latens designet for scalpere og dagstradere. Aldri gå glipp av et pip på grunn av treg utførelse.</div>
+          </div>
+        </div>
+        <div class="broker-feat">
+          <div class="bf-icon si-gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/></svg>
+          </div>
+          <div>
+            <div class="bf-h">TradingView-integrasjon</div>
+            <div class="bf-p">Handle direkte fra chartene dine. Verdens beste chart-plattform møter verdens beste utførelse.</div>
+          </div>
+        </div>
+        <div class="broker-feat">
+          <div class="bf-icon si-green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          </div>
+          <div>
+            <div class="bf-h">Sikker &amp; Regulert</div>
+            <div class="bf-p">Handle med ro. Pengene dine er segregert og beskyttet av topp-tier regulering (FCA, ASIC).</div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:8px;">
+          <a href="https://go.tradenation.com/visit/?bta=36145&brand=tradenation" target="_blank" class="btn btn-accent" style="width:100%;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Åpne konto hos Trade Nation
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ MEMBERSHIP ════════════════════════════ -->
+<section id="membership">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <div class="section-label" style="justify-content:center;">Membership</div>
+      <h2>Velg din tilgang</h2>
+      <p style="color:var(--text-muted);font-size:17px;margin-top:12px;">Alt starter med gratis tilgang. Oppgrader når du er klar.</p>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- FREE -->
+      <div class="glass-card pricing-card reveal reveal-delay-1">
+        <div class="pricing-tier">Gratis</div>
+        <div class="pricing-price">$0</div>
+        <div class="pricing-period">For alltid gratis</div>
+        <div class="pricing-desc">
+          Registrer deg hos Trade Nation via vår lenke og få umiddelbar tilgang til premium-signaler. Ingen kostnad, ingen forpliktelse.
+        </div>
+        <ul class="pricing-features">
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">Tilgang til <strong>Discord signal-kanal</strong></span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text"><strong>Live signals</strong> for Forex, indekser og krypto</span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">Community og læringsressurser</span>
+          </li>
+          <li>
+            <div class="feat-check no"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="2" y1="10" x2="10" y2="2"/><line x1="2" y1="2" x2="10" y2="10"/></svg></div>
+            <span class="feat-text" style="opacity:.5;">Copy Trading</span>
+          </li>
+          <li>
+            <div class="feat-check no"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="2" y1="10" x2="10" y2="2"/><line x1="2" y1="2" x2="10" y2="10"/></svg></div>
+            <span class="feat-text" style="opacity:.5;">Strategy Shop</span>
+          </li>
+        </ul>
+        <a href="#how" class="btn btn-outline" style="width:100%;">Kom i gang gratis</a>
+      </div>
+
+      <!-- PRO (featured) -->
+      <div class="glass-card pricing-card featured reveal reveal-delay-2" style="margin-top:-16px;padding-top:52px;">
+        <div class="pricing-badge">Mest populær</div>
+        <div class="pricing-tier" style="color:var(--primary);">Pro</div>
+        <div class="pricing-price" style="color:var(--primary);">$49</div>
+        <div class="pricing-period">per måned · avbryt når som helst</div>
+        <div class="pricing-desc">
+          For seriøse tradere som vil ha absolutt alt. Inkluderer automatisk copy trading og VIP-analyse.
+        </div>
+        <ul class="pricing-features">
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">Alt fra Gratis-planen</span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text"><strong>Automatisk copy trading</strong></span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text"><strong>Strategy Shop</strong> – alle TradingView-indikatorer</span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">VIP-signaler med dypere analyse</span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">Månedlig 1:1 performance-gjennomgang</span>
+          </li>
+        </ul>
+        <a href="#cta" class="btn btn-primary" style="width:100%;">Start Pro-perioden</a>
+      </div>
+
+      <!-- ENTERPRISE -->
+      <div class="glass-card pricing-card reveal reveal-delay-3" style="border:1px solid rgba(212,175,55,0.2);">
+        <div class="pricing-tier" style="color:var(--accent);">VIP Elite</div>
+        <div class="pricing-price" style="color:var(--accent);">$149</div>
+        <div class="pricing-period">per måned · begrenset plasser</div>
+        <div class="pricing-desc">
+          For de som vil ha direkte tilgang til analytikerne og skreddersydde strategier for din portefølje.
+        </div>
+        <ul class="pricing-features">
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">Alt fra Pro-planen</span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text"><strong>Direkte tilgang</strong> til analytikerne</span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">Skreddersydd portefølje-strategi</span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">Ukentlig video-gjennomgang</span>
+          </li>
+          <li>
+            <div class="feat-check yes"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <span class="feat-text">Prioritert support 24/7</span>
+          </li>
+        </ul>
+        <a href="#cta" class="btn btn-accent" style="width:100%;">Søk om VIP-plass</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ TESTIMONIALS ══════════════════════════ -->
+<section id="testimonials">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <div class="section-label" style="justify-content:center;">Hva traderne sier</div>
+      <h2>Ekte resultater, ekte folk</h2>
+    </div>
+
+    <div class="testimonials-grid">
+      <div class="glass-card testi-card reveal reveal-delay-1">
+        <div class="testi-stars">
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="testi-quote">«Begynte som total nybegynner. Etter to måneder med Fence Trading-signalene hadde jeg <em>mer enn doblet kontoen min</em>. Utrolig community!»</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:var(--primary-dim);color:var(--primary);">M</div>
+          <div>
+            <div class="testi-name">Magnus T.</div>
+            <div class="testi-role">Nybegynner-trader · Oslo</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card testi-card reveal reveal-delay-2">
+        <div class="testi-stars">
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="testi-quote">«Brukte copy trading-funksjonen og <em>tjente +340 pips</em> på XAUUSD mens jeg var på ferie. Satte det opp på 20 minutter.»</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:var(--accent-dim);color:var(--accent);">S</div>
+          <div>
+            <div class="testi-name">Sara H.</div>
+            <div class="testi-role">Passiv investor · Bergen</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card testi-card reveal reveal-delay-3">
+        <div class="testi-stars">
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="testi-quote">«Har traded i 5 år, men etter Fence Trading er analysen min mye skarpere. <em>Signalene er presis og godt forklart</em>. Anbefaler til alle.»</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:rgba(139,92,246,0.12);color:var(--purple);">K</div>
+          <div>
+            <div class="testi-name">Kristoffer V.</div>
+            <div class="testi-role">Erfaren trader · Stavanger</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ FAQ ════════════════════════════════ -->
+<section id="faq">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:0;">
+      <div class="section-label" style="justify-content:center;">FAQ</div>
+      <h2>Ofte stilte spørsmål</h2>
+    </div>
+
+    <div class="faq-list" id="faqList">
+      <div class="faq-item">
+        <div class="faq-q">
+          Er det virkelig gratis?
+          <div class="faq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        </div>
+        <div class="faq-a">Ja, 100% gratis. Vi tjener penger som affiliate når du registrerer deg hos Trade Nation via vår lenke. Du betaler ingenting ekstra — Trade Nation betaler oss en provisjon. Alt vi trenger er at du registrerer deg via vår link og sender oss bevis.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">
+          Hva slags signaler sender dere?
+          <div class="faq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        </div>
+        <div class="faq-a">Vi dekker Forex (XAUUSD, GBPUSD, EURUSD), indekser (US30, NAS100, SPX) og krypto (BTCUSD, ETHUSD). Hvert signal har tydelig inngang, stop loss og opptil 4 take profit-nivåer. Signalene sendes direkte til Discord.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">
+          Hva er copy trading, og hvordan fungerer det?
+          <div class="faq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        </div>
+        <div class="faq-a">Copy trading betyr at alle trades vi tar automatisk kopieres direkte til din handelskonto. Du setter det opp én gang, og alt skjer automatisk. Du bestemmer selv hvor mye kapital du vil allokere. Funksjonen krever Pro-abonnement.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">
+          Hvor mye kapital trenger jeg for å starte?
+          <div class="faq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        </div>
+        <div class="faq-a">Trade Nation har ingen offisiell minimumsgrense for affiliates, men vi anbefaler minimum $250-500 for en god handelsopplevelse. Med micro-lots kan du trade og lære med svært liten risiko per trade.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">
+          Garanterer dere profitt?
+          <div class="faq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        </div>
+        <div class="faq-a">Nei — og ingen seriøse aktører gjør det. Trading innebærer alltid risiko. Vår dokumenterte vinnrate er på 87%, men det er historiske resultater og fremtidig avkastning kan variere. Vi er alltid transparente med tap og gevinster.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">
+          Hvordan verifiserer jeg kontoen min?
+          <div class="faq-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        </div>
+        <div class="faq-a">Etter at du har registrert deg hos Trade Nation via vår link, gå til fencetrading.no/verify og last opp et screenshot av din Trade Nation-konto (med ditt brukernavn synlig). Vi godkjenner vanligvis innen 1-4 timer på hverdager.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ FINAL CTA ══════════════════════════════ -->
+<section id="cta" id="join">
+  <div class="cta-orb"></div>
+  <div class="container">
+    <div class="cta-inner reveal">
+      <span class="tag tag-accent" style="margin-bottom:24px;display:inline-flex;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Gratis tilgang — Begrenset antall plasser
+      </span>
+      <h2>Klar til å <span class="gradient-text">trade smartere?</span></h2>
+      <p>Bli med over 4 200 tradere som allerede bruker Fence Trading. Det tar under 5 minutter å komme i gang.</p>
+
+      <div class="cta-steps">
+        <div class="cta-step">
+          <div class="cta-step-num">1</div>
+          <div class="cta-step-label">Registrer deg hos Trade Nation</div>
+        </div>
+        <div class="cta-step-arrow">→</div>
+        <div class="cta-step">
+          <div class="cta-step-num">2</div>
+          <div class="cta-step-label">Verifiser hos oss</div>
+        </div>
+        <div class="cta-step-arrow">→</div>
+        <div class="cta-step">
+          <div class="cta-step-num">3</div>
+          <div class="cta-step-label">Få Discord-invite</div>
+        </div>
+        <div class="cta-step-arrow">→</div>
+        <div class="cta-step">
+          <div class="cta-step-num">4</div>
+          <div class="cta-step-label">Start trading!</div>
+        </div>
+      </div>
+
+      <div class="cta-btns">
+        <a href="https://go.tradenation.com/visit/?bta=36145&brand=tradenation" target="_blank" class="btn btn-primary" style="font-size:17px;padding:16px 36px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          Registrer deg gratis nå
+        </a>
+        <a href="/verify" class="btn btn-outline" style="font-size:17px;padding:16px 36px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+          Verifiser eksisterende konto
+        </a>
+      </div>
+      <p class="cta-note">Har du allerede en Trade Nation-konto? <a href="/verify">Gå rett til verifisering →</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ FOOTER ════════════════════════════════ -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#" class="nav-logo" style="font-size:18px;">
+          <div class="logo-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 3v18h18M7 16l4-4 4 4 5-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+          Fence<span>Trading</span>
+        </a>
+        <p>Premium handelssignaler og copy trading for alle — fra nybegynnere til erfarne tradere. Gratis tilgang for Trade Nation-affiliates.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Navigasjon</h4>
+        <ul>
+          <li><a href="#how">Kom i gang</a></li>
+          <li><a href="#performance">Resultater</a></li>
+          <li><a href="#broker">Megler</a></li>
+          <li><a href="#membership">Membership</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Tjenester</h4>
+        <ul>
+          <li><a href="#">Live Signals</a></li>
+          <li><a href="#">Copy Trading</a></li>
+          <li><a href="#">Strategy Shop</a></li>
+          <li><a href="#">Discord Community</a></li>
+          <li><a href="/platforms">Plattformer</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Selskap</h4>
+        <ul>
+          <li><a href="/verify">Verifiser konto</a></li>
+          <li><a href="#">Kontakt oss</a></li>
+          <li><a href="#">Personvern</a></li>
+          <li><a href="#">Vilkår</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-disclaimer">
+      ⚠️ <strong>Risikovarsel:</strong> CFD-handel innebærer høy risiko og er ikke egnet for alle investorer. Du kan tape mer enn din opprinnelige investering. Sørg for at du forstår risikoen forbundet med trading og søk uavhengig rådgivning om nødvendig. Tidligere resultater er ikke en indikasjon på fremtidige resultater. Fence Trading er en affiliate av Trade Nation og mottar provisjon for registreringer.
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 Fence Trading. Alle rettigheter forbeholdt.</span>
+      <span>Affiliate av Trade Nation · FCA Regulert</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════ JAVASCRIPT ════════════════════════════ -->
+<script>
+  /* ─── Nav scroll ─── */
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 20);
+  }, { passive: true });
+
+  /* ─── Ticker ─── */
+  const ticks = [
+    { pair:'XAUUSD', dir:'BUY',  tp:'TP3', pips:'+80' },
+    { pair:'US30',   dir:'SELL', tp:'TP4', pips:'+150' },
+    { pair:'GBPUSD', dir:'BUY',  tp:'TP2', pips:'+40' },
+    { pair:'NAS100', dir:'SELL', tp:'TP3', pips:'+120' },
+    { pair:'EURUSD', dir:'SELL', tp:'TP1', pips:'+25' },
+    { pair:'BTCUSD', dir:'BUY',  tp:'TP4', pips:'+500' },
+    { pair:'ETHUSD', dir:'BUY',  tp:'TP2', pips:'+180' },
+    { pair:'SPX500', dir:'BUY',  tp:'TP3', pips:'+95' },
+  ];
+  const track = document.getElementById('tickerTrack');
+  const render = (t) => `
+    <div class="tick-item">
+      <span class="tick-pair">${t.pair}</span>
+      <span class="tag ${t.dir==='BUY'?'tag-green':'tag-red'}" style="font-size:10px;padding:2px 8px;">${t.dir}</span>
+      <span class="tick-tp" style="color:${t.dir==='BUY'?'var(--green)':'var(--red)'}">✓ ${t.tp}</span>
+      <span class="tick-pips mono" style="color:#94A3B8">${t.pips} pips</span>
+    </div>`;
+  const html = [...ticks, ...ticks].map(render).join('');
+  track.innerHTML = html;
+
+  /* ─── Scroll reveal ─── */
+  const reveals = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if(e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  reveals.forEach(el => io.observe(el));
+
+  /* ─── FAQ accordion ─── */
+  document.getElementById('faqList').addEventListener('click', e => {
+    const item = e.target.closest('.faq-item');
+    if (!item) return;
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+  });
+
+  /* ─── Smooth nav links ─── */
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  });
+
+  /* ─── Animated counters ─── */
+  function animateCount(el, target, suffix='') {
+    let start = 0; const duration = 1800;
+    const step = timestamp => {
+      if (!start) start = timestamp;
+      const progress = Math.min((timestamp - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.floor(eased * target).toLocaleString('no') + suffix;
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  const counterObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const el = e.target;
+        const val = el.dataset.count;
+        const suf = el.dataset.suffix || '';
+        animateCount(el, parseInt(val), suf);
+        counterObs.unobserve(el);
+      }
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll('[data-count]').forEach(el => counterObs.observe(el));
+</script>
+
+</body>
+</html>
