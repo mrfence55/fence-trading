@@ -516,16 +516,16 @@ export default function Home() {
 
     /* ─── PERFORMANCE ───────────────────────────────────────────── */
     #performance { padding:100px 0; }
-    .perf-header { text-align:center; margin-bottom:64px; }
-    .perf-header p { color:var(--text-muted); font-size:18px; max-width:600px; margin:16px auto 0; }
+    .perf-header { text-align:left; margin-bottom:64px; }
+    .perf-header p { color:var(--text-muted); font-size:18px; max-width:600px; margin:16px 0 0; }
 
     .stats-row {
       display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:60px;
     }
     .stat-card {
-      padding:32px 24px; border-radius:var(--radius); text-align:center;
+      padding:32px 24px; border-radius:var(--radius); text-align:left;
     }
-    .stat-icon { margin:0 auto 16px; width:52px;height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center; }
+    .stat-icon { margin:0 0 16px; width:52px;height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center; }
     .stat-num {
       font-size:2.8rem;font-weight:900;font-family:'JetBrains Mono',monospace;
       line-height:1; margin-bottom:6px;
@@ -689,11 +689,10 @@ export default function Home() {
       background:radial-gradient(circle,rgba(6,182,212,0.1),transparent 70%);
       top:50%;left:50%;transform:translate(-50%,-50%);
     }
-    .cta-inner { text-align:center;position:relative;z-index:1; }
+    .cta-inner { text-align:left;position:relative;z-index:1; }
     .cta-inner h2 { font-size:clamp(2rem,5vw,3.5rem);margin-bottom:20px; }
-    .cta-inner p { font-size:18px;color:var(--text-muted);max-width:600px;margin:0 auto 40px; }
-    .cta-steps {
-      display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:48px;flex-wrap:wrap;
+    .cta-inner p { font-size:18px;color:var(--text-muted);max-width:600px;margin:0 0 40px; }
+    .cta-steps { display:flex;align-items:center;justify-content:flex-start;gap:0;margin-bottom:48px;flex-wrap:wrap;
     }
     .cta-step {
       display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 32px;
@@ -704,7 +703,7 @@ export default function Home() {
     }
     .cta-step-label { font-size:13px;color:var(--text-muted);font-weight:500;text-align:center;max-width:120px; }
     .cta-step-arrow { font-size:20px;color:var(--border);padding: 0 0 20px; }
-    .cta-btns { display:flex;gap:16px;justify-content:center;flex-wrap:wrap; }
+    .cta-btns { display:flex;gap:16px;justify-content:flex-start;flex-wrap:wrap; }
     .cta-note { font-size:13px;color:var(--text-faint);margin-top:20px; }
     .cta-note a { color:var(--primary); }
 
@@ -1199,7 +1198,7 @@ export default function Home() {
               })}
               {filteredSignals.length === 0 && (
                 <div className="glass-card feed-card" style={{ opacity: .5, gridColumn: "1/-1", justifyContent: "center", padding: "40px" }}>
-                  <div style={{ textAlign: "center" }}>
+                  <div style={{ textAlign: "left" }}>
                     <div className="feed-pair">Ingen signaler</div>
                     <div className="feed-time">for denne kanalen ennå</div>
                   </div>
@@ -1207,7 +1206,7 @@ export default function Home() {
               )}
             </div>
             
-            <div style={{ textAlign: "center" }}>
+            <div style={{ textAlign: "left" }}>
               <Link href="/performance" className="perf-link">
                 Se komplett historikk
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1222,7 +1221,7 @@ export default function Home() {
       {/* ═════════════════════════ PERSONAS ═════════════════════════ */}
       <section id="personas">
         <div className="container">
-          <div className="reveal" style={{ textAlign: "center" }}>
+          <div className="reveal">
             <div className="section-label">Hvem er dette for?</div>
             <h2>Uansett hvor du er på din reise</h2>
           </div>
@@ -1324,7 +1323,7 @@ export default function Home() {
       {/* ═════════════════════════ MEMBERSHIP ═════════════════════════ */}
       <section id="membership">
         <div className="container">
-          <div className="reveal" style={{ textAlign: "center" }}>
+          <div className="reveal">
             <div className="section-label">Medlemskap og priser</div>
             <h2>Velg din plan for suksess</h2>
           </div>
@@ -1382,7 +1381,7 @@ export default function Home() {
       {/* ═════════════════════════ TESTIMONIALS ═════════════════════════ */}
       <section id="testimonials">
         <div className="container">
-          <div className="reveal" style={{ textAlign: "center" }}>
+          <div className="reveal">
             <div className="section-label">Hva våre medlemmer sier</div>
             <h2>Resultater som snakker for seg selv</h2>
           </div>
@@ -1442,7 +1441,7 @@ export default function Home() {
       {/* ═════════════════════════ FAQ ═════════════════════════ */}
       <section id="faq">
         <div className="container">
-          <div className="reveal" style={{ textAlign: "center" }}>
+          <div className="reveal">
             <div className="section-label">Ofte stilte spørsmål</div>
             <h2>FAQ</h2>
           </div>
