@@ -27,6 +27,7 @@ load_dotenv('fenceWeb.env') # Fallback to current dir
 ANNOUNCED_LAST_HIT: dict[int, int] = {}   # record_id -> last TP number (0..4)
 ANNOUNCED_LAST_TS: dict[int, int]  = {}   # record_id -> last epoch-sec we messaged
 ANNOUNCE_COOLDOWN_SEC = 20
+DEDUP_SIGNAL_WINDOW_SEC = 20 * 60
 
 # =============== CONFIG ===============
 API_ID = int(os.getenv("API_ID") or os.getenv("TELEGRAM_API_ID") or "0")
@@ -98,6 +99,7 @@ DB_PATH = "signals.db"
 
 MAX_SIGNAL_AGE_DAYS = 5
 WARM_START_SKIP_BACKFILL = False
+MAX_FUTURE_TS_SKEW_SEC = 5 * 60
 
 # Website API Config
 WEBSITE_API_URL = "http://127.0.0.1:3000/api/signals" # Bypass public domain issues on VPS
@@ -326,6 +328,9 @@ CREATE TABLE IF NOT EXISTS signals(
   last_check_ts INTEGER NOT NULL,
   target_chat_id INTEGER,
   target_msg_id INTEGER,
+  forum_chat_id INTEGER,
+  forum_topic_id INTEGER,
+  forum_msg_id INTEGER,
   fingerprint TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_open ON signals(status);
@@ -357,6 +362,18 @@ async def db_init():
         except sqlite3.OperationalError:
             pass
         try:
+            await db.execute("ALTER TABLE signals ADD COLUMN forum_chat_id INTEGER;")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN forum_topic_id INTEGER;")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            await db.execute("ALTER TABLE signals ADD COLUMN forum_msg_id INTEGER;")
+        except sqlite3.OperationalError:
+            pass
+        try:
             await db.execute("ALTER TABLE signals ADD COLUMN chat_title TEXT;")
         except sqlite3.OperationalError:
             pass
@@ -383,19 +400,24 @@ async def warm_start_open_signals():
 async def insert_signal(rec: Dict[str, Any]):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            """INSERT INTO signals(chat_id,chat_title,msg_id,symbol,side,entry,sl,tp1,tp2,tp3,tp4,hits,notified_hits,status,close_reason,created_at,anchor_ts,last_check_ts,target_chat_id,target_msg_id,fingerprint)
-               VALUES(?,?,?,?,?,?,?,?,?,?,?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO signals(chat_id,chat_title,msg_id,symbol,side,entry,sl,tp1,tp2,tp3,tp4,hits,notified_hits,status,close_reason,created_at,anchor_ts,last_check_ts,target_chat_id,target_msg_id,fingerprint,forum_chat_id,forum_topic_id,forum_msg_id)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (rec["chat_id"], rec.get("chat_title"), rec["msg_id"], rec["symbol"], rec["side"], rec["entry"], rec["sl"],
              rec["tp1"], rec.get("tp2"), rec.get("tp3"), rec.get("tp4"),
              0, 0, "open", None, rec["created_at"], rec["anchor_ts"], rec["created_at"],
-             rec.get("target_chat_id"), rec.get("target_msg_id"), rec.get("fingerprint"))
+             rec.get("target_chat_id"), rec.get("target_msg_id"), rec.get("fingerprint"),
+             rec.get("forum_chat_id"), rec.get("forum_topic_id"), rec.get("forum_msg_id"))
         )
         await db.commit()
 
 async def get_open_signals_recent(max_age_days: int) -> List[Dict[str, Any]]:
     cutoff = int((datetime.now(tz=timezone.utc) - timedelta(days=max_age_days)).timestamp())
+    max_created_at = int(time.time()) + MAX_FUTURE_TS_SKEW_SEC
     async with aiosqlite.connect(DB_PATH) as db:
-        cur = await db.execute("SELECT * FROM signals WHERE status='open' AND created_at>=? ORDER BY id ASC", (cutoff,))
+        cur = await db.execute(
+            "SELECT * FROM signals WHERE status='open' AND created_at>=? AND created_at<=? ORDER BY id ASC",
+            (cutoff, max_created_at)
+        )
         rows = await cur.fetchall()
         cols = [c[0] for c in cur.description]
     return [dict(zip(cols, r)) for r in rows]
@@ -425,8 +447,12 @@ async def td_time_series_1m(symbol: str, since_ms: int) -> List[List]:
     if not sym: return []
     sym_q = urllib.parse.quote(sym, safe="")
     try:
-        # Windows safeguard: clamp timestamp to avoid [Errno 22]
+        now_sec = int(time.time())
         ts_sec = since_ms / 1000
+        if ts_sec > now_sec + MAX_FUTURE_TS_SKEW_SEC:
+            print(f"DEBUG: Skipping TD fetch for {sym}: future timestamp {ts_sec:.0f}")
+            return []
+        # Windows safeguard: clamp timestamp to avoid [Errno 22]
         if ts_sec < 946684800: ts_sec = 946684800 # Min 2000-01-01
         if ts_sec > 32503680000: ts_sec = 32503680000 # Max 3000-01-01
         start_iso = datetime.fromtimestamp(ts_sec, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -549,6 +575,52 @@ async def reply_status(chat_id: int, msg_id: int, text: str):
         # Just log warning, don't crash or spam too much
         print(f"Warning: Failed to reply to status in chat {chat_id} (likely no admin rights). Error: {e}")
 
+def row_get(row: Any, key: str, default: Any = None) -> Any:
+    try:
+        if hasattr(row, "keys") and key not in row.keys():
+            return default
+        value = row[key]
+        return default if value is None else value
+    except Exception:
+        return default
+
+async def send_status_to_signal_threads(signal_row: Any, text: str, context: str = "Status"):
+    """Send TP/SL status to the channel signal and the matching forum topic signal."""
+    target_chat_id = row_get(signal_row, "target_chat_id")
+    target_msg_id = row_get(signal_row, "target_msg_id")
+    if target_chat_id:
+        try:
+            if target_msg_id:
+                await reply_status(target_chat_id, target_msg_id, text)
+            else:
+                await client.send_message(target_chat_id, text)
+            print(f"DEBUG: [{context}] Sent to target channel {target_chat_id} (Msg: {target_msg_id})")
+        except Exception as e:
+            print(f"DEBUG: [{context}] Target send error: {e}")
+    else:
+        print(f"DEBUG: [{context}] No target channel for signal {row_get(signal_row, 'id', '?')}")
+
+    forum_chat_id = row_get(signal_row, "forum_chat_id", FORUM_GROUP_ID)
+    forum_topic_id = row_get(signal_row, "forum_topic_id")
+    forum_msg_id = row_get(signal_row, "forum_msg_id")
+    if not forum_topic_id:
+        config = CHANNELS_CONFIG.get(row_get(signal_row, "chat_id"))
+        forum_topic_id = config.get("topic_id") if config else None
+
+    if forum_chat_id and forum_topic_id:
+        try:
+            if forum_msg_id:
+                await client.send_message(forum_chat_id, text, reply_to=forum_msg_id)
+            else:
+                symbol = row_get(signal_row, "symbol", "")
+                fallback_text = f"{text}\n#{symbol}" if symbol and f"#{symbol}" not in text else text
+                await client.send_message(forum_chat_id, fallback_text, reply_to=forum_topic_id)
+            print(f"DEBUG: [{context}] Sent to forum topic {forum_topic_id} (Msg: {forum_msg_id})")
+        except Exception as e:
+            print(f"DEBUG: [{context}] Forum send error: {e}")
+    else:
+        print(f"DEBUG: [{context}] No forum topic for signal {row_get(signal_row, 'id', '?')}")
+
 def _fmt(n: float) -> str:
     if n is None: return ""
     return f"{n:.5f}".rstrip('0').rstrip('.')
@@ -609,6 +681,15 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
     # robust timestamps
     anchor_ms = int((r["anchor_ts"] or r["created_at"] or int(time.time()))) * 1000
     last_ms   = int((r["last_check_ts"] or r["created_at"] or int(time.time()))) * 1000
+    max_future_ms = int((time.time() + MAX_FUTURE_TS_SKEW_SEC) * 1000)
+    if anchor_ms > max_future_ms:
+        print(f"DEBUG: Closing future-dated signal {rec_id} ({symbol}); anchor_ts is invalid.")
+        await update_signal(rec_id, status="closed", close_reason="invalid_future_anchor_ts", last_check_ts=int(time.time()))
+        return
+    if last_ms > max_future_ms:
+        print(f"DEBUG: Resetting future last_check_ts for signal {rec_id} ({symbol}).")
+        await update_signal(rec_id, last_check_ts=int(time.time()))
+        return
 
     # only when a new 1m candle started
     now_dt = datetime.now(tz=timezone.utc)
@@ -692,8 +773,7 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if sl_hit:
         text = "❌ SL Hit."
-        if r["target_chat_id"] and r["target_msg_id"]:
-            await reply_status(r["target_chat_id"], r["target_msg_id"], text)
+        await send_status_to_signal_threads(r, text, "WatcherSL")
         ANNOUNCED_LAST_TS[rec_id] = now_s # Changed from ANNOUNCED_SL_HIT to ANNOUNCED_LAST_TS to match original logic
         
         # Send SL to website
@@ -728,20 +808,8 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if new_hits > hits_before and _may_send(new_hits):
         text = f"✅ {fmt_hits(new_hits)} truffet.\n#{symbol}"
-        target_chat_id = r["target_chat_id"]
-        target_msg_id = r["target_msg_id"]
-
-        if target_chat_id:
-            print(f"DEBUG: [Watcher] Hit TP{new_hits} for {symbol}. Sending to {target_chat_id} (Thread: {target_msg_id})")
-            try:
-                if target_msg_id:
-                    await reply_status(target_chat_id, target_msg_id, text)
-                else:
-                    await client.send_message(target_chat_id, text)
-            except Exception as e:
-                print(f"DEBUG: [Watcher] Error sending reply: {e}")
-        else:
-            print(f"DEBUG: [Watcher] No target_chat_id for signal {rec_id} ({symbol}), skipping reply.")
+        print(f"DEBUG: [Watcher] Hit TP{new_hits} for {symbol}. Sending to target and forum threads...")
+        await send_status_to_signal_threads(r, text, "WatcherTP")
         
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
@@ -772,8 +840,7 @@ async def run_check_for_record(r: Dict[str, Any], cache: Dict[str, List[List]]):
 
     if closed and not sl_hit and new_hits >= 4 and _may_send(new_hits):
         text = "🎯 TP4 truffet — ferdig!"
-        if r["target_chat_id"] and r["target_msg_id"]:
-            await reply_status(r["target_chat_id"], r["target_msg_id"], text)
+        await send_status_to_signal_threads(r, text, "WatcherTP4")
         ANNOUNCED_LAST_HIT[rec_id] = new_hits
         ANNOUNCED_LAST_TS[rec_id]  = now_s
 
@@ -782,6 +849,8 @@ def fmt_hits(h: int) -> str:
 
 async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[List]]:
     mins: Dict[str, int] = {}
+    now_ms = int(time.time() * 1000)
+    max_future_ms = now_ms + (MAX_FUTURE_TS_SKEW_SEC * 1000)
     for r in open_recs:
         sym = r["symbol"]
         if not sym or sym.strip() == "": continue
@@ -789,6 +858,10 @@ async def batch_fetch_ohlcv(open_recs: List[Dict[str, Any]]) -> Dict[str, List[L
         anchor_ms = int((r["anchor_ts"] or r["created_at"])) * 1000
         last_ms   = int((r["last_check_ts"] or r["created_at"])) * 1000
         since_ms  = max(anchor_ms, last_ms - 60_000)
+        if anchor_ms > max_future_ms or last_ms > max_future_ms or since_ms > max_future_ms:
+            print(f"DEBUG: Skipping future-dated signal {r.get('id')} ({sym}) in TD batch.")
+            await update_signal(int(r["id"]), last_check_ts=int(time.time()))
+            continue
         mins[sym] = min(mins.get(sym, since_ms), since_ms)
 
     out: Dict[str, List[List]] = {}
@@ -838,8 +911,8 @@ async def on_new_signal(evt: events.NewMessage.Event):
     # This captures duplicates even if they cross the 10-minute fingerprint bucket.
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id FROM signals WHERE symbol=? AND side=? AND created_at >= ?",
-            (parsed['symbol'], parsed['side'], msg_ts - (5 * 60))
+            "SELECT id FROM signals WHERE chat_id=? AND symbol=? AND side=? AND created_at >= ?",
+            (msg.chat_id, parsed['symbol'], parsed['side'], msg_ts - DEDUP_SIGNAL_WINDOW_SEC)
         ) as cursor:
             existing_row = await cursor.fetchone()
             if existing_row:
@@ -888,8 +961,11 @@ async def on_new_signal(evt: events.NewMessage.Event):
             # --- FORUM TOPIC FORWARDING ---
             topic_id = config.get("topic_id")
             if topic_id and FORUM_GROUP_ID:
+                rec["forum_chat_id"] = FORUM_GROUP_ID
+                rec["forum_topic_id"] = topic_id
                 try:
-                    await client.send_message(FORUM_GROUP_ID, smart_text, reply_to=topic_id)
+                    forum_msg = await client.send_message(FORUM_GROUP_ID, smart_text, reply_to=topic_id)
+                    rec["forum_msg_id"] = forum_msg.id
                     print(f"Forwarded to Forum Topic {topic_id} in {FORUM_GROUP_ID}")
                 except Exception as e_forum:
                     print(f"Failed to forward to Forum Topic {topic_id}: {e_forum}")
@@ -1093,23 +1169,17 @@ async def handle_reply_update(msg: Message, original_msg_id: int):
             if updates:
                 await update_signal(rec_id, **updates)
             
-            if target_chat_id and reply_action_text:
+            if reply_action_text:
                 # Construct the specific reply message
                 final_msg = f"{reply_action_text}\n#{symbol}"
                 if profit is not None and profit > 0:
                     final_msg += f"\n💰 +${profit} ({rr_ratio}R)"
                 
-                print(f"DEBUG: [ReplyHandler] Replying to {target_chat_id} (Msg: {target_msg_id})...")
-                try:
-                    if target_msg_id:
-                        await client.send_message(target_chat_id, final_msg, reply_to=target_msg_id)
-                    else:
-                        await client.send_message(target_chat_id, final_msg) # Fallback
-                    print(f"DEBUG: [ReplyHandler] Success: {final_msg.replace(chr(10), ' ')}")
-                except Exception as e:
-                    print(f"DEBUG: [ReplyHandler] Send Error: {e}")
+                print(f"DEBUG: [ReplyHandler] Sending status to target and forum threads...")
+                await send_status_to_signal_threads(r, final_msg, "ReplyHandler")
+                print(f"DEBUG: [ReplyHandler] Success: {final_msg.replace(chr(10), ' ')}")
             else:
-                print(f"DEBUG: [ReplyHandler] No target chat ID or reply text for signal {rec_id} ({symbol}). Cannot reply.")
+                print(f"DEBUG: [ReplyHandler] No reply text for signal {rec_id} ({symbol}). Cannot reply.")
 
         # 4. FINAL DB COMMIT (The Missing Link)
         if updates:

@@ -19,6 +19,7 @@ from typing import Optional, Dict, Any, List
 
 from telethon import TelegramClient, events
 from telethon.tl.types import Message
+from telethon.sessions import StringSession
 from dotenv import load_dotenv
 
 # Load environment
@@ -30,7 +31,15 @@ load_dotenv('fenceWeb.env') # Fallback to current dir
 
 API_ID = int(os.getenv("API_ID") or os.getenv("TELEGRAM_API_ID") or "0")
 API_HASH = os.getenv("API_HASH") or os.getenv("TELEGRAM_API_HASH")
-SESSION_NAME = "fence_relay_v3"
+SESSION_STRING_PATH = "tg_session.txt"
+
+def load_session_string() -> Optional[str]:
+    try:
+        with open(SESSION_STRING_PATH, "r") as f:
+            s = f.read().strip()
+            return s or None
+    except FileNotFoundError:
+        return None
 
 DB_PATH = "relay_v3.db"
 WEBSITE_API_URL = "https://fencetrading.no/api/signals"
@@ -304,7 +313,8 @@ async def main():
     
     await init_db()
     
-    client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
+    sess_str = load_session_string()
+    client = TelegramClient(StringSession(sess_str) if sess_str else StringSession(), API_ID, API_HASH)
     await client.start()
     
     me = await client.get_me()

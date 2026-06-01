@@ -22,9 +22,9 @@ TN_USERNAME = os.getenv("TN_USERNAME")
 TN_PASSWORD = os.getenv("TN_PASSWORD")
 
 # Telegram Config
-TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID", "0"))
-TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID") or os.getenv("API_ID") or "0")
+TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH") or os.getenv("API_HASH")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("BOT_TOKEN")
 TELEGRAM_CHANNEL_ID = int(os.getenv("TELEGRAM_CHANNEL_ID", "0"))
 
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")

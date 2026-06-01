@@ -183,6 +183,10 @@ export default function Home() {
     setTilt({ rx: 0, ry: 0 });
   };
 
+  const toggleFaq = (index: number) => {
+    setOpenFaq((current) => (current === index ? null : index));
+  };
+
   // Smooth scroll handler for anchor links
   const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     const target = document.querySelector(targetId);
@@ -1215,7 +1219,7 @@ export default function Home() {
         <div className="container">
           <div className="reveal">
             <div className="sl">Vår anbefalte megler</div>
-            <h2>Drevet av <span class="gt">Trade Nation</span></h2>
+            <h2>Drevet av <span className="gt">Trade Nation</span></h2>
             <p style={{ color: "var(--muted)", fontSize: "17px", marginTop: "12px", maxWidth: "580px" }}>
               Valgt fordi de kombinerer topp regulering, lav spread og sømløs TradingView-integrasjon.
             </p>

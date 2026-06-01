@@ -82,6 +82,16 @@ export async function POST(request: Request) {
       return NextResponse.json(data, { status: res.status });
     }
 
+    if (action === "deploy") {
+      const res = await fetch(`${LOCAL_SERVICE_URL}/deploy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      return NextResponse.json(data, { status: res.status });
+    }
+
     return NextResponse.json({ error: "Ugyldig action" }, { status: 400 });
 
   } catch (error) {

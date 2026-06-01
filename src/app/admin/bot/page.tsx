@@ -9,6 +9,8 @@ export default function AdminBotPage() {
   const [statusData, setStatusData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployResult, setDeployResult] = useState<any>(null);
   const [successMsg, setSuccessMsg] = useState("");
   
   // Telegram sign-in form state
@@ -220,6 +222,37 @@ export default function AdminBotPage() {
       }
     } catch (e) {
       console.error("Action failed:", e);
+    }
+  }
+
+  // Deploy: git pull + build + restart
+  async function handleDeploy() {
+    if (!confirm("Er du sikker? Dette vil kjøre git pull, npm run build, og restarte alle prosesser.")) return;
+    setIsDeploying(true);
+    setDeployResult(null);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await fetch("/api/admin/bot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${password}`
+        },
+        body: JSON.stringify({ action: "deploy" })
+      });
+      const data = await res.json();
+      setDeployResult(data);
+      if (data.success) {
+        setSuccessMsg("Deploy fullført! Ny kode er live.");
+      } else {
+        setError(data.error || "Deploy feilet");
+      }
+    } catch (e: any) {
+      setError("Deploy-feil: " + (e.message || "Ukjent feil"));
+    } finally {
+      setIsDeploying(false);
+      fetchStatus();
     }
   }
 
@@ -540,6 +573,37 @@ export default function AdminBotPage() {
                 )}
               </div>
             </div>
+
+            {/* CARD 3: DEPLOY */}
+            <div className="card p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-[#EEF2F8]">🚀 Deploy</h3>
+                <span className="text-[10px] text-faint uppercase font-bold tracking-wider">Git + Build + Restart</span>
+              </div>
+              <p className="text-xs text-[#8B9EC7] mb-4 leading-relaxed">
+                Kjører <code className="text-cyan-400">git pull</code> → <code className="text-cyan-400">npm run build</code> → <code className="text-cyan-400">pm2 restart all</code> på VPS.
+              </p>
+              <button
+                onClick={handleDeploy}
+                disabled={isDeploying}
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold text-sm tracking-wide shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all disabled:opacity-50"
+              >
+                {isDeploying ? "Deployer... (dette tar 1-3 min)" : "Deploy ny versjon"}
+              </button>
+              {deployResult && (
+                <div className="mt-4 bg-[#03060B] border border-white/5 rounded-xl p-3 font-mono text-[10px] text-[#A7F3D0]/80 max-h-40 overflow-y-auto">
+                  {deployResult.steps?.map((step: any, i: number) => (
+                    <div key={i} className="mb-2">
+                      <div className={`font-bold ${step.returncode === 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {step.returncode === 0 ? '✅' : '❌'} {step.step}
+                      </div>
+                      {step.stdout && <pre className="whitespace-pre-wrap text-[#8B9EC7] ml-4">{step.stdout.slice(-200)}</pre>}
+                      {step.stderr && <pre className="whitespace-pre-wrap text-red-300/60 ml-4">{step.stderr.slice(-200)}</pre>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           
           {/* RIGHT: LIVE TERMINAL LOG CONSOLE (7 cols) */}
@@ -557,7 +621,6 @@ export default function AdminBotPage() {
                   className="bg-[#060a12]/80 border border-white/10 rounded-lg text-xs font-bold text-[#EEF2F8] px-3 py-2 outline-none cursor-pointer"
                 >
                   <option value="fence-bot">fence-bot (watcher)</option>
-                  <option value="fence-relay">fence-relay (relay)</option>
                   <option value="fence-affiliate">fence-affiliate</option>
                   <option value="fence-admin">fence-admin</option>
                 </select>

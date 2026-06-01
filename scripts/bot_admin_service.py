@@ -45,7 +45,7 @@ def get_pm2_status():
         apps = {}
         for app in data:
             name = app.get("name")
-            if name in ("fence-bot", "fence-relay", "fence-affiliate", "fence-web"):
+            if name in ("fence-bot", "fence-affiliate", "fence-web", "fence-admin"):
                 apps[name] = {
                     "status": app.get("pm2_env", {}).get("status", "unknown"),
                     "cpu": app.get("monit", {}).get("cpu", 0),
@@ -174,8 +174,7 @@ async def handle_verify(request):
         
         # Restart PM2 processes so they load the new session string
         try:
-            # Restart bot and relay processes in background
-            subprocess.Popen("pm2 restart fence-bot fence-relay", shell=True)
+            subprocess.Popen("pm2 restart fence-bot", shell=True)
             pm2_msg = "PM2-prosesser restartes..."
         except Exception as e:
             pm2_msg = f"Klarte ikke restarte PM2: {e}"
@@ -188,40 +187,72 @@ async def handle_verify(request):
     except Exception as e:
         return web.json_response({"error": f"Verifiseringsfeil: {e}"}, status=500)
 
+def get_pm2_log_paths(app_name):
+    """Gets the stdout and stderr log file paths for a PM2 app dynamically."""
+    try:
+        cmd = "pm2 jlist"
+        result = subprocess.check_output(cmd, shell=True, text=True)
+        data = json.loads(result)
+        for app in data:
+            if app.get("name") == app_name:
+                pm2_env = app.get("pm2_env", {})
+                out_path = pm2_env.get("pm_out_log_path")
+                err_path = pm2_env.get("pm_err_log_path")
+                return out_path, err_path
+    except Exception as e:
+        print(f"Error getting log paths for {app_name}: {e}")
+    return None, None
+
 async def handle_logs(request):
     """Returns the last 100 lines of bot logs."""
     try:
         app_name = request.query.get("app", "fence-bot")
-        
-        # Run pm2 logs app_name --raw --lines 100 --nobuster
-        # On Windows, pm2 logs command works but can block, so we use pm2 logs --lines 100 --raw --nobuster
-        cmd = f"pm2 logs {app_name} --lines 100 --raw --nobuster"
-        # We can also directly try to read the log file from pm2 show
-        # Running the logs command is safer and easier
-        try:
-            result = subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.STDOUT, timeout=5)
-            return web.Response(text=result, content_type="text/plain")
-        except subprocess.TimeoutExpired:
-            return web.Response(text="Timeout reading logs.", status=504)
-        except Exception as e:
-            return web.Response(text=f"Error reading logs: {e}", status=500)
+
+        # Get paths dynamically from PM2!
+        out_path, err_path = get_pm2_log_paths(app_name)
+
+        # Fallbacks if dynamic lookup fails
+        if not out_path or not err_path:
+            log_dir = os.path.expanduser("~/.pm2/logs")
+            err_path = err_path or os.path.join(log_dir, f"{app_name}-err.log")
+            out_path = out_path or os.path.join(log_dir, f"{app_name}-out.log")
+
+        def get_last_lines(path, count=100):
+            if not path or not os.path.exists(path):
+                return f"[Loggfil finnes ikke på {path}]\n"
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    from collections import deque
+                    lines = deque(f, maxlen=count)
+                    return "".join(lines)
+            except Exception as e:
+                return f"[Feil ved lesing av {path}: {e}]\n"
+
+        output = "=== STANDARD ERROR (Siste 100 linjer) ===\n"
+        output += get_last_lines(err_path, 100)
+        output += "\n=== STANDARD OUTPUT (Siste 100 linjer) ===\n"
+        output += get_last_lines(out_path, 100)
+
+        return web.Response(text=output, content_type="text/plain")
     except Exception as e:
-        return web.Response(text=str(e), status=500)
+        return web.Response(text=f"Error: {e}", status=500)
 
 async def handle_action(request):
     """Triggers PM2 process actions (restart, stop, start)."""
     try:
         body = await request.json()
         action = body.get("action") # "restart", "stop", "start"
-        app = body.get("app") # "fence-bot", "fence-relay", "all"
+        app = body.get("app") # "fence-bot", "fence-affiliate", "fence-web", "fence-admin", "all"
         
         if not action or not app:
             return web.json_response({"error": "Ufullstendige parametere"}, status=400)
             
-        if action not in ("restart", "stop", "start") or app not in ("fence-bot", "fence-relay", "fence-affiliate", "all"):
+        active_apps = ("fence-bot", "fence-affiliate", "fence-web", "fence-admin")
+        if action not in ("restart", "stop", "start") or app not in (*active_apps, "all"):
             return web.json_response({"error": "Ugyldig handling eller app"}, status=400)
             
-        cmd = f"pm2 {action} {app}"
+        target = " ".join(active_apps) if app == "all" else app
+        cmd = f"pm2 {action} {target}"
         subprocess.Popen(cmd, shell=True)
         
         return web.json_response({
@@ -231,6 +262,90 @@ async def handle_action(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
+async def handle_deploy(request):
+    """Full deploy: git pull -> npm run build -> pm2 restart all.
+    Runs the build in the background and streams output."""
+    try:
+        # Get the project root (one level up from scripts/)
+        project_root = os.path.dirname(script_dir)
+        
+        steps = []
+        
+        # Step 1: git pull
+        try:
+            result = subprocess.run(
+                "git pull origin main",
+                shell=True, cwd=project_root,
+                capture_output=True, text=True, timeout=60
+            )
+            steps.append({
+                "step": "git pull",
+                "returncode": result.returncode,
+                "stdout": result.stdout[-500:] if result.stdout else "",
+                "stderr": result.stderr[-500:] if result.stderr else ""
+            })
+            if result.returncode != 0:
+                return web.json_response({
+                    "success": False,
+                    "error": "git pull failed",
+                    "steps": steps
+                }, status=500)
+        except subprocess.TimeoutExpired:
+            return web.json_response({
+                "success": False,
+                "error": "git pull timed out after 60s"
+            }, status=500)
+        
+        # Step 2: npm run build (longer timeout)
+        try:
+            result = subprocess.run(
+                "npm run build",
+                shell=True, cwd=project_root,
+                capture_output=True, text=True, timeout=300
+            )
+            steps.append({
+                "step": "npm run build",
+                "returncode": result.returncode,
+                "stdout": result.stdout[-1000:] if result.stdout else "",
+                "stderr": result.stderr[-1000:] if result.stderr else ""
+            })
+            if result.returncode != 0:
+                return web.json_response({
+                    "success": False,
+                    "error": "npm run build failed",
+                    "steps": steps
+                }, status=500)
+        except subprocess.TimeoutExpired:
+            return web.json_response({
+                "success": False,
+                "error": "npm run build timed out after 300s",
+                "steps": steps
+            }, status=500)
+        
+        # Step 3: pm2 restart all
+        try:
+            result = subprocess.run(
+                "pm2 restart all",
+                shell=True, cwd=project_root,
+                capture_output=True, text=True, timeout=30
+            )
+            steps.append({
+                "step": "pm2 restart all",
+                "returncode": result.returncode,
+                "stdout": result.stdout[-500:] if result.stdout else "",
+                "stderr": result.stderr[-500:] if result.stderr else ""
+            })
+        except subprocess.TimeoutExpired:
+            steps.append({"step": "pm2 restart all", "warning": "timed out but may still be running"})
+        
+        return web.json_response({
+            "success": True,
+            "message": "Deploy fullført! Ny kode er live.",
+            "steps": steps
+        })
+    except Exception as e:
+        return web.json_response({"error": f"Deploy-feil: {e}"}, status=500)
+
 # ===================== WEB SERVER =====================
 
 app = web.Application()
@@ -239,6 +354,7 @@ app.router.add_post('/connect', handle_connect)
 app.router.add_post('/verify', handle_verify)
 app.router.add_get('/logs', handle_logs)
 app.router.add_post('/action', handle_action)
+app.router.add_post('/deploy', handle_deploy)
 
 if __name__ == "__main__":
     # Host on localhost only for extreme security!

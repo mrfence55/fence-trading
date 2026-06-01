@@ -31,16 +31,6 @@ module.exports = {
             }
         },
         {
-            name: 'fence-relay',
-            script: 'scripts/fence_relay_v3.py',
-            interpreter: process.platform === 'win32' ? 'python' : 'python3',
-            cwd: './',
-            restart_delay: 5000,
-            env: {
-                PYTHONUNBUFFERED: '1'
-            }
-        },
-        {
             name: 'fence-admin',
             script: 'scripts/bot_admin_service.py',
             interpreter: process.platform === 'win32' ? 'python' : 'python3',
