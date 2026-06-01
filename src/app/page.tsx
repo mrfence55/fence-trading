@@ -801,9 +801,86 @@ export default function Home() {
     }
   
   
+      
+    /* --- RESPONSIVE ALIGNMENT & PREMIUM DESKTOP EFFECTS --- */
+    .reveal, .perf-header, .cta-in {
+      text-align: left;
+    }
+    .perf-header p, .cta-in > p, .reveal p {
+      margin: 16px 0 0;
+      max-width: 600px;
+    }
+    .stat-card {
+      text-align: left;
+    }
+    .stat-icon {
+      margin: 0 0 16px;
+    }
+    .cta-inner {
+      text-align: left;
+    }
+    .cta-steps, .cta-btns {
+      justify-content: flex-start;
+    }
+
+    @media (min-width: 1025px) {
+      .reveal, .perf-header, .cta-in {
+        text-align: center;
+      }
+      .perf-header p, .cta-in > p, .reveal p {
+        margin: 16px auto 0;
+      }
+      .stat-card {
+        text-align: center;
+      }
+      .stat-icon {
+        margin: 0 auto 16px;
+      }
+      .cta-inner {
+        text-align: center;
+      }
+      .cta-steps, .cta-btns {
+        justify-content: center;
+      }
+    }
+
+    /* --- PREMIUM TOP ANNOUNCEMENT BAR --- */
+    .top-announcement {
+      background: linear-gradient(90deg, rgba(6, 182, 212, 0.12) 0%, rgba(212, 175, 55, 0.08) 100%);
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+      padding: 8px 16px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+      position: relative;
+      z-index: 250;
+      letter-spacing: .03em;
+    }
+    .top-announcement strong {
+      color: var(--primary);
+    }
+    #nav {
+      position: fixed;
+      top: 36px; /* Shifted down for top bar */
+      left: 0;
+      right: 0;
+      z-index: 200;
+      transition: background .4s, box-shadow .4s, backdrop-filter .4s, top .3s ease;
+    }
+    #nav.scrolled {
+      top: 0; /* Slide back to top when sticky */
+    }
+    .ticker-bar, .ticker-wrap {
+      margin-top: 106px !important; /* Adjusted for navigation + top bar height */
+    }
+  
       ` }} />
 
       {/* ═══════════════════════════ NAV ═══════════════════════════════ */}
+      <div className="top-announcement">
+        <span>⚡ <strong>GRATIS PREMIUM-TILGANG:</strong> Registrer deg hos Trade Nation i dag og få direkte tilgang til Discord & Copy Trading!</span>
+      </div>
       <header id="nav" className={scrolled ? "scrolled" : ""}>
         <div className="container">
           <div className="nav-inner">
@@ -845,7 +922,7 @@ export default function Home() {
       </header>
 
       {/* ═══════════════════════ LIVE TICKER ═══════════════════════════ */}
-      <div className="ticker-bar" style={{ marginTop: "68px" }}>
+      <div className="ticker-bar" style={{ marginTop: "106px" }}>
         <div className="ticker-fade-l"></div>
         <div className="ticker-fade-r"></div>
         <div className="ticker-track">
