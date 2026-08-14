@@ -188,25 +188,63 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             });
           }
 
-          // 5. Add Interactive Markers by matching closest real timestamps
-          const targetOpenSec = data.openTimeSec || (data.candles[Math.min(8, data.candles.length - 1)].time);
-          const targetCloseSec = data.closeTimeSec || (data.candles[data.candles.length - 1].time);
+          // 5. Add Interactive Markers by finding exact entry & price-crossing candles
+          const targetOpenSec = data.openTimeSec || data.candles[Math.min(8, data.candles.length - 1)].time;
+          const targetCloseSec = data.closeTimeSec || data.candles[data.candles.length - 1].time;
 
-          let bestEntryCandle = data.candles[0];
+          let bestEntryIndex = 0;
           let minEntryDiff = Infinity;
-          let bestExitCandle = data.candles[data.candles.length - 1];
-          let minExitDiff = Infinity;
 
-          for (const c of data.candles) {
-            const entryDiff = Math.abs(c.time - targetOpenSec);
+          for (let i = 0; i < data.candles.length; i++) {
+            const entryDiff = Math.abs(data.candles[i].time - targetOpenSec);
             if (entryDiff < minEntryDiff) {
               minEntryDiff = entryDiff;
-              bestEntryCandle = c;
+              bestEntryIndex = i;
             }
-            const exitDiff = Math.abs(c.time - targetCloseSec);
-            if (exitDiff < minExitDiff) {
-              minExitDiff = exitDiff;
-              bestExitCandle = c;
+          }
+
+          const bestEntryCandle = data.candles[bestEntryIndex];
+
+          // Search for the exact candle where the price touched or crossed the target (TP or SL)
+          let bestExitCandle = data.candles[data.candles.length - 1];
+          let foundCrossing = false;
+
+          for (let i = bestEntryIndex; i < data.candles.length; i++) {
+            const c = data.candles[i];
+            if (isWin) {
+              // TP Hit check
+              if (isBuy && targetTp && c.high >= targetTp) {
+                bestExitCandle = c;
+                foundCrossing = true;
+                break;
+              } else if (!isBuy && targetTp && c.low <= targetTp) {
+                bestExitCandle = c;
+                foundCrossing = true;
+                break;
+              }
+            } else {
+              // SL Hit check
+              if (isBuy && targetSl && c.low <= targetSl) {
+                bestExitCandle = c;
+                foundCrossing = true;
+                break;
+              } else if (!isBuy && targetSl && c.high >= targetSl) {
+                bestExitCandle = c;
+                foundCrossing = true;
+                break;
+              }
+            }
+          }
+
+          // If no direct crossing detected, fallback to closest close-time candle
+          if (!foundCrossing) {
+            let minExitDiff = Infinity;
+            for (let i = bestEntryIndex; i < data.candles.length; i++) {
+              const exitDiff = Math.abs(data.candles[i].time - targetCloseSec);
+              if (exitDiff < minExitDiff) {
+                minExitDiff = exitDiff;
+                bestExitCandle = data.candles[i];
+              }
             }
           }
 
@@ -221,21 +259,15 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             },
           ];
 
-          // Ensure exit marker is distinct from entry
-          if (bestExitCandle.time !== bestEntryCandle.time) {
+          // Place TP / SL marker at the exact crossing candle
+          if (bestExitCandle) {
+            const exitPosition = isWin
+              ? (isBuy ? "aboveBar" : "belowBar")
+              : (isBuy ? "belowBar" : "aboveBar");
+
             markers.push({
               time: bestExitCandle.time as Time,
-              position: isBuy ? "aboveBar" : "belowBar",
-              color: isWin ? "#10b981" : "#f43f5e",
-              shape: isWin ? "circle" : "square",
-              text: isWin ? `🎯 TP${signal.tp_level || 2} HIT` : `🛑 SL HIT`,
-              size: 2,
-            });
-          } else if (data.candles.length > 2) {
-            const lastCandle = data.candles[data.candles.length - 2];
-            markers.push({
-              time: lastCandle.time as Time,
-              position: isBuy ? "aboveBar" : "belowBar",
+              position: exitPosition,
               color: isWin ? "#10b981" : "#f43f5e",
               shape: isWin ? "circle" : "square",
               text: isWin ? `🎯 TP${signal.tp_level || 2} HIT` : `🛑 SL HIT`,
