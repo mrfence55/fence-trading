@@ -12,17 +12,20 @@
     "better-sqlite3": "^12.6.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.0.0",
+    "lightweight-charts": "^5.2.1",
     "lucide-react": "^0.554.0",
     "next": "14.2.16",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/three": "^0.185.4",
     "autoprefixer": "^10.4.19",
     "eslint": "^8",
     "eslint-config-next": "14.2.16",

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Activity, ArrowLeft, BarChart3, RefreshCw, ShieldCheck, Sparkles, Target, TrendingUp } from "lucide-react";
 import { PerformanceStats } from "@/components/PerformanceStats";
 import { Signal, SignalTable } from "@/components/SignalTable";
+import { TradeReplayModal } from "@/components/TradeReplayModal";
 
 const CLOSED_STATUSES = ["TP_HIT", "SL_HIT", "CLOSED", "BREAKEVEN"];
 
@@ -18,6 +19,8 @@ export default function PerformancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [scrolled, setScrolled] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState<Signal | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -275,7 +278,15 @@ export default function PerformancePage() {
               </div>
             </div>
 
-            <SignalTable signals={signals} activeChannel={activeChannel} onChannelChange={setActiveChannel} />
+            <SignalTable
+              signals={signals}
+              activeChannel={activeChannel}
+              onChannelChange={setActiveChannel}
+              onSelectSignal={(sig) => {
+                setSelectedTrade(sig);
+                setIsModalOpen(true);
+              }}
+            />
           </div>
         </section>
       </main>
@@ -286,6 +297,13 @@ export default function PerformancePage() {
           <p>Resultater er historiske og garanterer ikke fremtidig avkastning.</p>
         </div>
       </footer>
+
+      {/* Interactive TradingView Trade Replay Modal */}
+      <TradeReplayModal
+        signal={selectedTrade}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 }

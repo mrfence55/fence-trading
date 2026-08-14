@@ -15,6 +15,12 @@ export async function GET() {
           symbol,
           type,
           status,
+          entry,
+          sl,
+          tp1,
+          tp2,
+          tp3,
+          tp4,
           pips,
           tp_level,
           timestamp,
@@ -58,6 +64,12 @@ export async function POST(request: Request) {
     const symbol = body.symbol;
     const type = body.type || "LONG";
     const status = body.status || "OPEN";
+    const entry = typeof body.entry === "number" ? body.entry : null;
+    const sl = typeof body.sl === "number" ? body.sl : null;
+    const tp1 = typeof body.tp1 === "number" ? body.tp1 : null;
+    const tp2 = typeof body.tp2 === "number" ? body.tp2 : null;
+    const tp3 = typeof body.tp3 === "number" ? body.tp3 : null;
+    const tp4 = typeof body.tp4 === "number" ? body.tp4 : null;
     const pips = typeof body.pips === "number" ? body.pips : null;
     const tp_level = typeof body.tp_level === "number" ? body.tp_level : null;
     const open_time = body.open_time || null;
@@ -73,10 +85,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Symbol is required" }, { status: 400 });
     }
 
-    // Check if the signal already exists (by fingerprint OR symbol+channel_id+open_time)
+    // Check if the signal already exists. Fingerprints are scoped by channel to
+    // avoid overwriting same-symbol signals from different Fence channels.
     let existing: any = null;
-    if (fingerprint) {
-      existing = db.prepare("SELECT id FROM signals WHERE fingerprint = ?").get(fingerprint);
+    if (fingerprint && channel_id !== null) {
+      existing = db.prepare("SELECT id FROM signals WHERE fingerprint = ? AND channel_id = ?").get(fingerprint, channel_id);
+    }
+    if (!existing && fingerprint && channel_id === null) {
+      existing = db.prepare("SELECT id FROM signals WHERE fingerprint = ? AND channel_id IS NULL").get(fingerprint);
     }
     if (!existing && symbol && channel_id && open_time) {
       existing = db.prepare(
@@ -91,6 +107,12 @@ export async function POST(request: Request) {
           symbol = ?,
           type = ?,
           status = ?,
+          entry = COALESCE(?, entry),
+          sl = COALESCE(?, sl),
+          tp1 = COALESCE(?, tp1),
+          tp2 = COALESCE(?, tp2),
+          tp3 = COALESCE(?, tp3),
+          tp4 = COALESCE(?, tp4),
           pips = ?,
           tp_level = ?,
           open_time = ?,
@@ -106,6 +128,12 @@ export async function POST(request: Request) {
         symbol,
         type,
         status,
+        entry,
+        sl,
+        tp1,
+        tp2,
+        tp3,
+        tp4,
         pips,
         tp_level,
         open_time,
@@ -123,13 +151,19 @@ export async function POST(request: Request) {
       // Insert new signal
       const info = db.prepare(`
         INSERT INTO signals (
-          symbol, type, status, pips, tp_level, open_time, 
+          symbol, type, status, entry, sl, tp1, tp2, tp3, tp4, pips, tp_level, open_time,
           channel_id, channel_name, risk_pips, reward_pips, rr_ratio, profit, fingerprint
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         symbol,
         type,
         status,
+        entry,
+        sl,
+        tp1,
+        tp2,
+        tp3,
+        tp4,
         pips,
         tp_level,
         open_time,

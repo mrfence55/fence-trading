@@ -1,7 +1,55 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
+
+type LogFilter = "all" | "signals" | "website" | "forum" | "td" | "errors";
+
+const LOG_APPS = [
+  { value: "fence-bot", label: "fence-bot (signalflow)" },
+  { value: "fence-web", label: "fence-web (nettside)" },
+  { value: "fence-admin", label: "fence-admin" },
+  { value: "fence-affiliate", label: "fence-affiliate (parkert)" },
+];
+
+const CORE_APPS = ["fence-bot", "fence-web", "fence-admin"];
+
+const LOG_FILTERS: Array<{ value: LogFilter; label: string }> = [
+  { value: "all", label: "Alle" },
+  { value: "signals", label: "Signaler" },
+  { value: "website", label: "Website" },
+  { value: "forum", label: "Forum" },
+  { value: "td", label: "Twelve Data" },
+  { value: "errors", label: "Feil" },
+];
+
+function latestLine(lines: string[], matcher: (line: string) => boolean) {
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if (matcher(lines[i])) return lines[i].trim();
+  }
+  return "";
+}
+
+function lineMatchesFilter(line: string, filter: LogFilter) {
+  const value = line.toLowerCase();
+  if (filter === "all") return true;
+  if (filter === "signals") return /signal|parsed|forwarded|new/.test(value);
+  if (filter === "website") return /website|api\/signals|successfully sent/.test(value);
+  if (filter === "forum") return /forum|topic|target channel|replyhandler/.test(value);
+  if (filter === "td") return /td |td error|twelve|credits|throttling/.test(value);
+  if (filter === "errors") return /error|failed|traceback|keyboardinterrupt|cancelled/.test(value);
+  return true;
+}
+
+function logLineClass(line: string) {
+  const value = line.toLowerCase();
+  if (/traceback|keyboardinterrupt|cancelled| error|failed|api error/.test(value)) return "text-red-300";
+  if (/website ok|successfully sent/.test(value)) return "text-emerald-300";
+  if (/forum|topic|target channel|replyhandler/.test(value)) return "text-cyan-300";
+  if (/td error|credits|throttling/.test(value)) return "text-amber-300";
+  if (/parsed signal|successfully parsed|forwarded new signal|new signal sent/.test(value)) return "text-violet-200";
+  return "text-[#A7F3D0]/75";
+}
 
 export default function AdminBotPage() {
   const [password, setPassword] = useState("");
@@ -23,7 +71,9 @@ export default function AdminBotPage() {
   // Logs console state
   const [activeApp, setActiveApp] = useState("fence-bot");
   const [logs, setLogs] = useState("");
+  const [logFilter, setLogFilter] = useState<LogFilter>("all");
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [isFlushingLogs, setIsFlushingLogs] = useState(false);
   
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
@@ -36,18 +86,24 @@ export default function AdminBotPage() {
     }
   }, []);
 
-  // Poll status data every 8 seconds if authorized
+  // Poll status and logs while the dashboard is open.
   useEffect(() => {
     if (!isAuthorized) return;
     
     fetchStatus();
     fetchLogs();
     
-    const interval = setInterval(() => {
+    const statusInterval = setInterval(() => {
       fetchStatus();
     }, 8000);
+    const logsInterval = setInterval(() => {
+      fetchLogs();
+    }, 15000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(logsInterval);
+    };
   }, [isAuthorized, activeApp]);
 
   // Scroll logs console to bottom
@@ -56,6 +112,55 @@ export default function AdminBotPage() {
       consoleEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [logs]);
+
+  const logLines = useMemo(
+    () => logs.split(/\r?\n/).filter((line) => line.trim().length > 0),
+    [logs]
+  );
+
+  const filteredLogLines = useMemo(
+    () => logLines.filter((line) => lineMatchesFilter(line, logFilter)),
+    [logLines, logFilter]
+  );
+
+  const signalInsights = useMemo(() => {
+    const pm2 = statusData?.pm2 || {};
+    const coreOnline = CORE_APPS.filter((app) => pm2[app]?.status === "online").length;
+    const tdLine = latestLine(logLines, (line) => /TD ERROR|TD credits|credits brukt|Throttling/i.test(line));
+
+    return [
+      {
+        label: "Kjerneapper",
+        value: `${coreOnline}/${CORE_APPS.length} online`,
+        detail: CORE_APPS.map((app) => `${app}: ${pm2[app]?.status || "ukjent"}`).join(" · "),
+        tone: coreOnline === CORE_APPS.length ? "green" : "amber",
+      },
+      {
+        label: "Siste signal",
+        value: latestLine(logLines, (line) => /Successfully parsed signal|PARSED SIGNAL|Forwarded new signal|NEW SIGNAL SENT/i.test(line)) || "Venter på neste signal",
+        detail: "Parser og Telegram-forwarding",
+        tone: "cyan",
+      },
+      {
+        label: "Website API",
+        value: latestLine(logLines, (line) => /WEBSITE OK|Successfully sent signal to website|Website API/i.test(line)) || "Venter på neste website-oppdatering",
+        detail: "Oppdaterer forsiden og performance",
+        tone: "green",
+      },
+      {
+        label: "Forum / topic",
+        value: latestLine(logLines, (line) => /forum topic|Forwarded to Forum Topic|Sent to forum topic/i.test(line)) || "Venter på neste topic-send",
+        detail: "Samlekanal med riktig topic",
+        tone: "violet",
+      },
+      {
+        label: "Twelve Data",
+        value: tdLine || "Ingen nylige TD-varsler",
+        detail: /credits/i.test(tdLine) ? "API-grense eller pause aktiv" : "Watcher-status",
+        tone: /error|credits/i.test(tdLine) ? "amber" : "cyan",
+      },
+    ];
+  }, [logLines, statusData]);
 
   async function verifyAdmin(pwd: string) {
     setIsLoading(true);
@@ -125,6 +230,32 @@ export default function AdminBotPage() {
       setLogs("Klarte ikke hente logger.");
     } finally {
       setIsLoadingLogs(false);
+    }
+  }
+
+  async function handleFlushLogs() {
+    if (!confirm(`Tømme PM2-loggene for ${activeApp}? Dette sletter bare loggtekst, ikke data.`)) return;
+    setIsFlushingLogs(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await fetch("/api/admin/bot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${password}`
+        },
+        body: JSON.stringify({ action: "flushLogs", app: activeApp })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || data.stderr || "Kunne ikke tømme logger");
+      setSuccessMsg(data.message || `Logger tømt for ${activeApp}`);
+      setLogs("");
+      setTimeout(fetchLogs, 700);
+    } catch (e: any) {
+      setError(e.message || "Kunne ikke tømme logger");
+    } finally {
+      setIsFlushingLogs(false);
     }
   }
 
@@ -227,7 +358,7 @@ export default function AdminBotPage() {
 
   // Deploy: git pull + build + restart
   async function handleDeploy() {
-    if (!confirm("Er du sikker? Dette vil kjøre git pull, npm run build, og restarte alle prosesser.")) return;
+    if (!confirm("Er du sikker? Dette vil kjøre git pull, npm run build, og restarte fence-web, fence-bot og fence-admin.")) return;
     setIsDeploying(true);
     setDeployResult(null);
     setError("");
@@ -418,6 +549,31 @@ export default function AdminBotPage() {
           </div>
         )}
 
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          {signalInsights.map((item) => (
+            <div
+              key={item.label}
+              className={`rounded-2xl border p-4 bg-white/[0.035] ${
+                item.tone === "green"
+                  ? "border-emerald-400/20"
+                  : item.tone === "amber"
+                    ? "border-amber-400/25"
+                    : item.tone === "violet"
+                      ? "border-violet-400/20"
+                      : "border-cyan-400/20"
+              }`}
+            >
+              <div className="text-[10px] font-black uppercase tracking-[.14em] text-[#8B9EC7]">
+                {item.label}
+              </div>
+              <div className="mt-2 min-h-[44px] text-xs font-bold leading-5 text-[#EEF2F8] line-clamp-2">
+                {item.value}
+              </div>
+              <div className="mt-2 truncate text-[11px] text-[#8B9EC7]">{item.detail}</div>
+            </div>
+          ))}
+        </section>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* LEFT: STATUS & TERMINAL LOGIN (5 cols) */}
@@ -535,36 +691,59 @@ export default function AdminBotPage() {
               
               <div className="space-y-4">
                 {statusData?.pm2 ? (
-                  Object.entries(statusData.pm2).map(([name, app]: any) => (
+                  Object.entries(statusData.pm2)
+                    .sort(([aName, aApp]: any, [bName, bApp]: any) => {
+                      const aCore = aApp?.core || CORE_APPS.includes(aName);
+                      const bCore = bApp?.core || CORE_APPS.includes(bName);
+                      if (aCore !== bCore) return aCore ? -1 : 1;
+                      return aName.localeCompare(bName);
+                    })
+                    .filter(([name]: any) => name !== "error")
+                    .map(([name, app]: any) => (
                     <div className="p-3.5 rounded-xl bg-white/2 border border-white/5 flex flex-col gap-2" key={name}>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-bold text-white">{name}</span>
+                        <span className="text-sm font-bold text-white">
+                          {name}
+                          {!(app?.core || CORE_APPS.includes(name)) && (
+                            <span className="ml-2 rounded bg-amber-500/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-amber-300">
+                              parkert
+                            </span>
+                          )}
+                        </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          app.status === "online" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+                          app?.status === "online" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
                         }`}>
-                          {app.status.toUpperCase()}
+                          {(app?.status || "unknown").toUpperCase()}
                         </span>
                       </div>
                       
                       <div className="grid grid-cols-3 gap-2 text-[11px] text-[#8B9EC7] border-y border-white/5 py-2 font-mono">
-                        <div>CPU: {app.cpu}%</div>
-                        <div>RAM: {(app.memory / 1024 / 1024).toFixed(0)}MB</div>
-                        <div>Restarts: {app.restarts}</div>
+                        <div>CPU: {app?.cpu || 0}%</div>
+                        <div>RAM: {((app?.memory || 0) / 1024 / 1024).toFixed(0)}MB</div>
+                        <div>Restarts: {app?.restarts || 0}</div>
                       </div>
 
                       <div className="flex gap-2 justify-end mt-1">
-                        <button
-                          onClick={() => handleProcessCommand(name, "restart")}
-                          className="px-2.5 py-1.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-[10px] font-bold tracking-wide uppercase transition-all"
-                        >
-                          Restart
-                        </button>
-                        <button
-                          onClick={() => handleProcessCommand(name, "stop")}
-                          className="px-2.5 py-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold tracking-wide uppercase transition-all"
-                        >
-                          Stopp
-                        </button>
+                        {(app?.core || CORE_APPS.includes(name)) ? (
+                          <>
+                            <button
+                              onClick={() => handleProcessCommand(name, "restart")}
+                              className="px-2.5 py-1.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-[10px] font-bold tracking-wide uppercase transition-all"
+                            >
+                              Restart
+                            </button>
+                            <button
+                              onClick={() => handleProcessCommand(name, "stop")}
+                              className="px-2.5 py-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold tracking-wide uppercase transition-all"
+                            >
+                              Stopp
+                            </button>
+                          </>
+                        ) : (
+                          <span className="rounded bg-white/[.035] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-[#8B9EC7]">
+                            Ingen handlinger
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))
@@ -581,7 +760,7 @@ export default function AdminBotPage() {
                 <span className="text-[10px] text-faint uppercase font-bold tracking-wider">Git + Build + Restart</span>
               </div>
               <p className="text-xs text-[#8B9EC7] mb-4 leading-relaxed">
-                Kjører <code className="text-cyan-400">git pull</code> → <code className="text-cyan-400">npm run build</code> → <code className="text-cyan-400">pm2 restart all</code> på VPS.
+                Kjører <code className="text-cyan-400">git pull</code> → <code className="text-cyan-400">npm run build</code> → <code className="text-cyan-400">pm2 restart fence-web fence-bot fence-admin</code> på VPS.
               </p>
               <button
                 onClick={handleDeploy}
@@ -620,9 +799,9 @@ export default function AdminBotPage() {
                   onChange={(e) => setActiveApp(e.target.value)}
                   className="bg-[#060a12]/80 border border-white/10 rounded-lg text-xs font-bold text-[#EEF2F8] px-3 py-2 outline-none cursor-pointer"
                 >
-                  <option value="fence-bot">fence-bot (watcher)</option>
-                  <option value="fence-affiliate">fence-affiliate</option>
-                  <option value="fence-admin">fence-admin</option>
+                  {LOG_APPS.map((app) => (
+                    <option value={app.value} key={app.value}>{app.label}</option>
+                  ))}
                 </select>
                 
                 <button
@@ -633,7 +812,35 @@ export default function AdminBotPage() {
                 >
                   {isLoadingLogs ? "Laster..." : "Oppdater"}
                 </button>
+                <button
+                  onClick={handleFlushLogs}
+                  disabled={isFlushingLogs}
+                  className="btn btn-o"
+                  style={{ padding: "8px 12px", fontSize: "11.5px", borderRadius: "6px" }}
+                >
+                  {isFlushingLogs ? "Tømmer..." : "Tøm logg"}
+                </button>
               </div>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              {LOG_FILTERS.map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  onClick={() => setLogFilter(filter.value)}
+                  className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[.1em] transition ${
+                    logFilter === filter.value
+                      ? "border-cyan-300 bg-cyan-300 text-black"
+                      : "border-white/10 bg-white/[.035] text-[#8B9EC7] hover:border-cyan-300/35 hover:text-white"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+              <span className="ml-auto self-center text-[10px] font-bold uppercase tracking-[.12em] text-[#8B9EC7]">
+                {filteredLogLines.length}/{logLines.length} linjer
+              </span>
             </div>
             
             {/* Terminal Box */}
@@ -649,9 +856,17 @@ export default function AdminBotPage() {
                   </div>
                 </div>
               )}
-              <pre className="whitespace-pre-wrap flex-1 overflow-x-auto pb-4">
-                {logs}
-              </pre>
+              <div className="flex-1 overflow-x-auto pb-4 whitespace-pre-wrap">
+                {filteredLogLines.length > 0 ? (
+                  filteredLogLines.map((line, index) => (
+                    <div className={logLineClass(line)} key={`${index}-${line.slice(0, 24)}`}>
+                      {line}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[#8B9EC7]">Ingen linjer matcher filteret.</div>
+                )}
+              </div>
               <div ref={consoleEndRef} />
             </div>
           </div>

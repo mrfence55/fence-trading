@@ -92,6 +92,17 @@ export async function POST(request: Request) {
       return NextResponse.json(data, { status: res.status });
     }
 
+    if (action === "flushLogs") {
+      const { app } = body;
+      const res = await fetch(`${LOCAL_SERVICE_URL}/flush-logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ app: app || "fence-bot" }),
+      });
+      const data = await res.json();
+      return NextResponse.json(data, { status: res.status });
+    }
+
     return NextResponse.json({ error: "Ugyldig action" }, { status: 400 });
 
   } catch (error) {

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { BarChart2 } from "lucide-react";
 
 export type Signal = {
   id: number;
@@ -21,11 +22,12 @@ interface SignalTableProps {
   signals: Signal[];
   activeChannel: string;
   onChannelChange: (channel: string) => void;
+  onSelectSignal?: (signal: Signal) => void;
 }
 
 const CHANNELS = ["All", "Fence - Aurora", "Fence - Odin", "Fence - Main", "Fence - Crypto", "Fence - Live / Indices"];
 
-export function SignalTable({ signals, activeChannel, onChannelChange }: SignalTableProps) {
+export function SignalTable({ signals, activeChannel, onChannelChange, onSelectSignal }: SignalTableProps) {
   const filteredSignals =
     activeChannel === "All"
       ? signals
@@ -53,7 +55,7 @@ export function SignalTable({ signals, activeChannel, onChannelChange }: SignalT
 
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#080D16]/90 shadow-[0_30px_100px_rgba(0,0,0,.28)]">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className="w-full min-w-[1040px] text-left text-sm">
             <thead className="border-b border-white/10 bg-white/[.035] text-[11px] font-black uppercase tracking-[.12em] text-[#8B9EC7]">
               <tr>
                 <th className="px-4 py-4">Åpnet</th>
@@ -64,12 +66,13 @@ export function SignalTable({ signals, activeChannel, onChannelChange }: SignalT
                 <th className="px-4 py-4">Status</th>
                 <th className="px-4 py-4 text-right">RR</th>
                 <th className="px-4 py-4 text-right">Resultat</th>
+                <th className="px-4 py-4 text-center">Trade Replay</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
               {filteredSignals.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-[#8B9EC7]">
+                  <td colSpan={9} className="px-4 py-12 text-center text-[#8B9EC7]">
                     Ingen signaler registrert for valgt filter.
                   </td>
                 </tr>
@@ -79,7 +82,8 @@ export function SignalTable({ signals, activeChannel, onChannelChange }: SignalT
                     key={signal.id}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="transition-colors hover:bg-cyan-300/[.035]"
+                    onClick={() => onSelectSignal?.(signal)}
+                    className="cursor-pointer transition-colors hover:bg-cyan-300/[.05]"
                   >
                     <td className="px-4 py-4 font-mono text-xs text-[#8B9EC7]">
                       {formatDate(signal.open_time)}
@@ -120,6 +124,19 @@ export function SignalTable({ signals, activeChannel, onChannelChange }: SignalT
                             maximumFractionDigits: 0,
                           })}`
                         : "-"}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectSignal?.(signal);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-300 transition hover:border-cyan-400 hover:bg-cyan-400/20"
+                      >
+                        <BarChart2 className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Se chart</span>
+                      </button>
                     </td>
                   </motion.tr>
                 ))
