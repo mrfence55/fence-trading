@@ -43,7 +43,6 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
   const chartRef = useRef<IChartApi | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dataSource, setDataSource] = useState<string>("");
-  const [tradeDates, setTradeDates] = useState<{ open: string; close: string }>({ open: "", close: "" });
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -136,14 +135,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
           );
           setDataSource(data.source || "");
 
-          if (data.candles[0] && data.candles[data.candles.length - 1]) {
-            setTradeDates({
-              open: formatUnixTime(data.openTimeSec || data.candles[0].time),
-              close: formatUnixTime(data.closeTimeSec || data.candles[data.candles.length - 1].time),
-            });
-          }
-
-          // 4. Add Entry, TP and SL Price Lines with precise styling
+          // 4. Add Entry, TP1, TP2, TP3, TP4 and SL Price Lines
           if (entryPrice) {
             candlestickSeries.createPriceLine({
               price: entryPrice,
@@ -177,6 +169,28 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             });
           }
 
+          if (signal.tp3) {
+            candlestickSeries.createPriceLine({
+              price: signal.tp3,
+              color: "#047857",
+              lineWidth: 2,
+              lineStyle: LineStyle.Solid,
+              axisLabelVisible: true,
+              title: `TP3: ${signal.tp3}`,
+            });
+          }
+
+          if (signal.tp4) {
+            candlestickSeries.createPriceLine({
+              price: signal.tp4,
+              color: "#065f46",
+              lineWidth: 2,
+              lineStyle: LineStyle.Solid,
+              axisLabelVisible: true,
+              title: `TP4: ${signal.tp4}`,
+            });
+          }
+
           if (targetSl) {
             candlestickSeries.createPriceLine({
               price: targetSl,
@@ -188,9 +202,8 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             });
           }
 
-          // 5. Add Interactive Markers by finding exact entry & price-crossing candles
+          // 5. Intelligent marker placement based on exact price crossings
           const targetOpenSec = data.openTimeSec || data.candles[Math.min(8, data.candles.length - 1)].time;
-          const targetCloseSec = data.closeTimeSec || data.candles[data.candles.length - 1].time;
 
           let bestEntryIndex = 0;
           let minEntryDiff = Infinity;
@@ -205,47 +218,66 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
 
           const bestEntryCandle = data.candles[bestEntryIndex];
 
-          // Search for the exact candle where the price touched or crossed the target (TP or SL)
-          let bestExitCandle = data.candles[data.candles.length - 1];
-          let foundCrossing = false;
+          // Scan forward chronologically from the entry candle
+          let bestExitCandle: any = null;
+          let hitLevelLabel = isWin ? (signal.tp_level ? `TP${signal.tp_level}` : "TP") : "SL";
 
-          for (let i = bestEntryIndex; i < data.candles.length; i++) {
+          for (let i = bestEntryIndex + 1; i < data.candles.length; i++) {
             const c = data.candles[i];
             if (isWin) {
-              // TP Hit check
-              if (isBuy && targetTp && c.high >= targetTp) {
-                bestExitCandle = c;
-                foundCrossing = true;
-                break;
-              } else if (!isBuy && targetTp && c.low <= targetTp) {
-                bestExitCandle = c;
-                foundCrossing = true;
-                break;
+              // Check from highest TP to lowest TP reached
+              if (isBuy) {
+                if (signal.tp3 && c.high >= signal.tp3) {
+                  bestExitCandle = c;
+                  hitLevelLabel = "TP3";
+                  break;
+                } else if (signal.tp2 && c.high >= signal.tp2) {
+                  bestExitCandle = c;
+                  hitLevelLabel = "TP2";
+                  break;
+                } else if (signal.tp1 && c.high >= signal.tp1) {
+                  bestExitCandle = c;
+                  hitLevelLabel = "TP1";
+                  break;
+                } else if (targetTp && c.high >= targetTp) {
+                  bestExitCandle = c;
+                  break;
+                }
+              } else {
+                // Short direction
+                if (signal.tp3 && c.low <= signal.tp3) {
+                  bestExitCandle = c;
+                  hitLevelLabel = "TP3";
+                  break;
+                } else if (signal.tp2 && c.low <= signal.tp2) {
+                  bestExitCandle = c;
+                  hitLevelLabel = "TP2";
+                  break;
+                } else if (signal.tp1 && c.low <= signal.tp1) {
+                  bestExitCandle = c;
+                  hitLevelLabel = "TP1";
+                  break;
+                } else if (targetTp && c.low <= targetTp) {
+                  bestExitCandle = c;
+                  break;
+                }
               }
             } else {
-              // SL Hit check
+              // SL Check
               if (isBuy && targetSl && c.low <= targetSl) {
                 bestExitCandle = c;
-                foundCrossing = true;
                 break;
               } else if (!isBuy && targetSl && c.high >= targetSl) {
                 bestExitCandle = c;
-                foundCrossing = true;
                 break;
               }
             }
           }
 
-          // If no direct crossing detected, fallback to closest close-time candle
-          if (!foundCrossing) {
-            let minExitDiff = Infinity;
-            for (let i = bestEntryIndex; i < data.candles.length; i++) {
-              const exitDiff = Math.abs(data.candles[i].time - targetCloseSec);
-              if (exitDiff < minExitDiff) {
-                minExitDiff = exitDiff;
-                bestExitCandle = data.candles[i];
-              }
-            }
+          // Fallback if no clean crossing candle detected: place exit 2-3 candles after entry
+          if (!bestExitCandle) {
+            const fallbackIndex = Math.min(bestEntryIndex + 3, data.candles.length - 1);
+            bestExitCandle = data.candles[fallbackIndex];
           }
 
           const markers: SeriesMarker<Time>[] = [
@@ -259,18 +291,21 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             },
           ];
 
-          // Place TP / SL marker at the exact crossing candle
-          if (bestExitCandle) {
+          if (bestExitCandle && bestExitCandle.time !== bestEntryCandle.time) {
             const exitPosition = isWin
               ? (isBuy ? "aboveBar" : "belowBar")
               : (isBuy ? "belowBar" : "aboveBar");
+
+            const pipText = signal.pips !== null && signal.pips !== undefined
+              ? ` (${signal.pips >= 0 ? "+" : ""}${signal.pips}p)`
+              : "";
 
             markers.push({
               time: bestExitCandle.time as Time,
               position: exitPosition,
               color: isWin ? "#10b981" : "#f43f5e",
               shape: isWin ? "circle" : "square",
-              text: isWin ? `🎯 TP${signal.tp_level || 2} HIT` : `🛑 SL HIT`,
+              text: isWin ? `🎯 ${hitLevelLabel} HIT${pipText}` : `🛑 SL HIT`,
               size: 2,
             });
           }
@@ -371,7 +406,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             <span className="h-2 w-2 rounded-full bg-[#38bdf8]" /> Entry
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#10b981]" /> Take Profit
+            <span className="h-2 w-2 rounded-full bg-[#10b981]" /> Take Profit (TP1-TP4)
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-[#f43f5e]" /> Stop Loss
@@ -383,15 +418,4 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
       </div>
     </div>
   );
-}
-
-function formatUnixTime(sec: number): string {
-  if (!sec) return "";
-  const d = new Date(sec * 1000);
-  return d.toLocaleDateString("no-NO", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
