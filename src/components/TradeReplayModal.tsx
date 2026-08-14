@@ -127,7 +127,7 @@ export function TradeReplayModal({ signal, isOpen, onClose }: TradeReplayModalPr
               <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Risk / Reward</p>
                 <p className="mt-1 font-mono text-base font-black text-amber-300">
-                  {signal.rr_ratio ? `1:${signal.rr_ratio} RR` : "1:3.0 RR"}
+                  {signal.rr_ratio ? `1:${signal.rr_ratio} RR` : "1:1 RR"}
                 </p>
               </div>
             </div>

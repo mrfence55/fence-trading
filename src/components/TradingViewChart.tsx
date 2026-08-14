@@ -47,7 +47,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // 1. Initialize TradingView Chart
+    // 1. Initialize TradingView Chart with balanced margins for symmetric 1:1 view
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: height,
@@ -76,9 +76,10 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
       },
       rightPriceScale: {
         borderColor: "rgba(255, 255, 255, 0.08)",
+        autoScale: true,
         scaleMargins: {
-          top: 0.18,
-          bottom: 0.18,
+          top: 0.14,
+          bottom: 0.14,
         },
       },
       timeScale: {
@@ -99,14 +100,22 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
       wickDownColor: "#f43f5e",
     });
 
-    // 3. Fetch Candles from API
+    // 3. Compute accurate signal values with symmetric 1:1 RR distance for SL and TP3
     const isBuy = signal.type?.toUpperCase().includes("BUY") || signal.type?.toUpperCase().includes("LONG");
     const isWin = signal.status?.includes("TP") || (signal.pips !== null && signal.pips !== undefined && signal.pips > 0);
     
     const defaultEntry = signal.symbol?.includes("BTC") ? 64000 : signal.symbol?.includes("XAU") ? 2450 : 1.285;
     const entryPrice = signal.entry || defaultEntry;
-    const targetTp = signal.tp2 || signal.tp1 || (isBuy ? entryPrice * 1.015 : entryPrice * 0.985);
     const targetSl = signal.sl || (isBuy ? entryPrice * 0.99 : entryPrice * 1.01);
+    
+    // Risk distance between entry and SL
+    const riskDistance = Math.abs(entryPrice - targetSl);
+    const decimals = entryPrice > 500 ? 1 : entryPrice > 10 ? 2 : 4;
+
+    // Symmetrical 1:1 RR TP3 (same absolute distance from entry as SL)
+    const symmetricalTp3 = signal.tp3 || Number((isBuy ? entryPrice + riskDistance : entryPrice - riskDistance).toFixed(decimals));
+    const symmetricalTp2 = signal.tp2 || Number((isBuy ? entryPrice + riskDistance * 0.66 : entryPrice - riskDistance * 0.66).toFixed(decimals));
+    const symmetricalTp1 = signal.tp1 || Number((isBuy ? entryPrice + riskDistance * 0.33 : entryPrice - riskDistance * 0.33).toFixed(decimals));
 
     const queryParams = new URLSearchParams({
       symbol: signal.symbol || "XAUUSD",
@@ -115,7 +124,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
       closeTime: signal.timestamp || "",
       status: signal.status || "TP_HIT",
       entry: entryPrice.toString(),
-      tp: targetTp.toString(),
+      tp: symmetricalTp3.toString(),
       sl: targetSl.toString(),
     });
 
@@ -135,7 +144,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
           );
           setDataSource(data.source || "");
 
-          // 4. Add Entry, TP1, TP2, TP3, TP4 and SL Price Lines
+          // 4. Add Entry, TP1, TP2, TP3 (1:1 Target) and SL (1:1 Risk) Price Lines
           if (entryPrice) {
             candlestickSeries.createPriceLine({
               price: entryPrice,
@@ -147,50 +156,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             });
           }
 
-          if (signal.tp1) {
-            candlestickSeries.createPriceLine({
-              price: signal.tp1,
-              color: "#10b981",
-              lineWidth: 1,
-              lineStyle: LineStyle.Dotted,
-              axisLabelVisible: true,
-              title: `TP1: ${signal.tp1}`,
-            });
-          }
-
-          if (signal.tp2) {
-            candlestickSeries.createPriceLine({
-              price: signal.tp2,
-              color: "#059669",
-              lineWidth: 2,
-              lineStyle: LineStyle.Solid,
-              axisLabelVisible: true,
-              title: `TP2: ${signal.tp2}`,
-            });
-          }
-
-          if (signal.tp3) {
-            candlestickSeries.createPriceLine({
-              price: signal.tp3,
-              color: "#047857",
-              lineWidth: 2,
-              lineStyle: LineStyle.Solid,
-              axisLabelVisible: true,
-              title: `TP3: ${signal.tp3}`,
-            });
-          }
-
-          if (signal.tp4) {
-            candlestickSeries.createPriceLine({
-              price: signal.tp4,
-              color: "#065f46",
-              lineWidth: 2,
-              lineStyle: LineStyle.Solid,
-              axisLabelVisible: true,
-              title: `TP4: ${signal.tp4}`,
-            });
-          }
-
+          // Stop Loss Line (1:1 Risk)
           if (targetSl) {
             candlestickSeries.createPriceLine({
               price: targetSl,
@@ -198,7 +164,53 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
               lineWidth: 2,
               lineStyle: LineStyle.Dashed,
               axisLabelVisible: true,
-              title: `SL: ${targetSl}`,
+              title: `SL: ${targetSl} (1:1 Risk)`,
+            });
+          }
+
+          // Symmetrical TP3 Main Target (1:1 RR)
+          if (symmetricalTp3) {
+            candlestickSeries.createPriceLine({
+              price: symmetricalTp3,
+              color: "#10b981",
+              lineWidth: 2,
+              lineStyle: LineStyle.Solid,
+              axisLabelVisible: true,
+              title: `TP3: ${symmetricalTp3} (1:1 RR)`,
+            });
+          }
+
+          // Partial Take Profit Lines (TP1 & TP2)
+          if (symmetricalTp1 && symmetricalTp1 !== symmetricalTp3) {
+            candlestickSeries.createPriceLine({
+              price: symmetricalTp1,
+              color: "#34d399",
+              lineWidth: 1,
+              lineStyle: LineStyle.Dotted,
+              axisLabelVisible: true,
+              title: `TP1: ${symmetricalTp1}`,
+            });
+          }
+
+          if (symmetricalTp2 && symmetricalTp2 !== symmetricalTp3) {
+            candlestickSeries.createPriceLine({
+              price: symmetricalTp2,
+              color: "#059669",
+              lineWidth: 1,
+              lineStyle: LineStyle.Dotted,
+              axisLabelVisible: true,
+              title: `TP2: ${symmetricalTp2}`,
+            });
+          }
+
+          if (signal.tp4) {
+            candlestickSeries.createPriceLine({
+              price: signal.tp4,
+              color: "#047857",
+              lineWidth: 1,
+              lineStyle: LineStyle.Solid,
+              axisLabelVisible: true,
+              title: `TP4: ${signal.tp4}`,
             });
           }
 
@@ -227,38 +239,32 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             if (isWin) {
               // Check from highest TP to lowest TP reached
               if (isBuy) {
-                if (signal.tp3 && c.high >= signal.tp3) {
+                if (symmetricalTp3 && c.high >= symmetricalTp3) {
                   bestExitCandle = c;
                   hitLevelLabel = "TP3";
                   break;
-                } else if (signal.tp2 && c.high >= signal.tp2) {
+                } else if (symmetricalTp2 && c.high >= symmetricalTp2) {
                   bestExitCandle = c;
                   hitLevelLabel = "TP2";
                   break;
-                } else if (signal.tp1 && c.high >= signal.tp1) {
+                } else if (symmetricalTp1 && c.high >= symmetricalTp1) {
                   bestExitCandle = c;
                   hitLevelLabel = "TP1";
-                  break;
-                } else if (targetTp && c.high >= targetTp) {
-                  bestExitCandle = c;
                   break;
                 }
               } else {
                 // Short direction
-                if (signal.tp3 && c.low <= signal.tp3) {
+                if (symmetricalTp3 && c.low <= symmetricalTp3) {
                   bestExitCandle = c;
                   hitLevelLabel = "TP3";
                   break;
-                } else if (signal.tp2 && c.low <= signal.tp2) {
+                } else if (symmetricalTp2 && c.low <= symmetricalTp2) {
                   bestExitCandle = c;
                   hitLevelLabel = "TP2";
                   break;
-                } else if (signal.tp1 && c.low <= signal.tp1) {
+                } else if (symmetricalTp1 && c.low <= symmetricalTp1) {
                   bestExitCandle = c;
                   hitLevelLabel = "TP1";
-                  break;
-                } else if (targetTp && c.low <= targetTp) {
-                  bestExitCandle = c;
                   break;
                 }
               }
@@ -373,12 +379,10 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
               </span>
             </div>
           )}
-          {signal.rr_ratio ? (
-            <div className="flex items-center gap-1.5 font-mono font-bold">
-              <span className="text-slate-400">R:R:</span>
-              <span className="text-cyan-300">1:{signal.rr_ratio}</span>
-            </div>
-          ) : null}
+          <div className="flex items-center gap-1.5 font-mono font-bold">
+            <span className="text-slate-400">R:R:</span>
+            <span className="text-cyan-300">{signal.rr_ratio ? `1:${signal.rr_ratio}` : "1:1"} RR</span>
+          </div>
           <div className="flex items-center gap-1.5 text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
             <span className="font-mono uppercase tracking-widest text-[10px]">
@@ -406,10 +410,10 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             <span className="h-2 w-2 rounded-full bg-[#38bdf8]" /> Entry
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#10b981]" /> Take Profit (TP1-TP4)
+            <span className="h-2 w-2 rounded-full bg-[#10b981]" /> TP3 (1:1 RR Mål)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#f43f5e]" /> Stop Loss
+            <span className="h-2 w-2 rounded-full bg-[#f43f5e]" /> SL (1:1 Risiko)
           </span>
         </div>
         <div className="text-[10px] text-slate-500">
