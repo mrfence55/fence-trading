@@ -230,60 +230,70 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
 
           const bestEntryCandle = data.candles[bestEntryIndex];
 
+          const isExplicitWin = signal.status?.includes("TP") || (signal.pips !== null && signal.pips !== undefined && signal.pips > 0);
+          const isExplicitLoss = signal.status?.includes("SL") || (signal.pips !== null && signal.pips !== undefined && signal.pips < 0);
+          const isActive = !isExplicitWin && !isExplicitLoss;
+
           // Scan forward chronologically from the entry candle
           let bestExitCandle: any = null;
-          let hitLevelLabel = isWin ? (signal.tp_level ? `TP${signal.tp_level}` : "TP") : "SL";
+          let hitLevelLabel = isExplicitWin ? (signal.tp_level ? `TP${signal.tp_level}` : "TP") : "SL";
+          let foundCrossing = false;
 
           for (let i = bestEntryIndex + 1; i < data.candles.length; i++) {
             const c = data.candles[i];
-            if (isWin) {
-              // Check from highest TP to lowest TP reached
-              if (isBuy) {
-                if (symmetricalTp3 && c.high >= symmetricalTp3) {
-                  bestExitCandle = c;
-                  hitLevelLabel = "TP3";
-                  break;
-                } else if (symmetricalTp2 && c.high >= symmetricalTp2) {
-                  bestExitCandle = c;
-                  hitLevelLabel = "TP2";
-                  break;
-                } else if (symmetricalTp1 && c.high >= symmetricalTp1) {
-                  bestExitCandle = c;
-                  hitLevelLabel = "TP1";
-                  break;
-                }
-              } else {
-                // Short direction
-                if (symmetricalTp3 && c.low <= symmetricalTp3) {
-                  bestExitCandle = c;
-                  hitLevelLabel = "TP3";
-                  break;
-                } else if (symmetricalTp2 && c.low <= symmetricalTp2) {
-                  bestExitCandle = c;
-                  hitLevelLabel = "TP2";
-                  break;
-                } else if (symmetricalTp1 && c.low <= symmetricalTp1) {
-                  bestExitCandle = c;
-                  hitLevelLabel = "TP1";
-                  break;
-                }
+            
+            // Check for TP touch
+            if (isBuy) {
+              if (symmetricalTp3 && c.high >= symmetricalTp3) {
+                bestExitCandle = c;
+                hitLevelLabel = "TP3";
+                foundCrossing = true;
+                if (isExplicitWin) break;
+              } else if (symmetricalTp2 && c.high >= symmetricalTp2) {
+                bestExitCandle = c;
+                hitLevelLabel = "TP2";
+                foundCrossing = true;
+                if (isExplicitWin) break;
+              } else if (symmetricalTp1 && c.high >= symmetricalTp1) {
+                bestExitCandle = c;
+                hitLevelLabel = "TP1";
+                foundCrossing = true;
+                if (isExplicitWin) break;
               }
             } else {
-              // SL Check
+              // Short direction
+              if (symmetricalTp3 && c.low <= symmetricalTp3) {
+                bestExitCandle = c;
+                hitLevelLabel = "TP3";
+                foundCrossing = true;
+                if (isExplicitWin) break;
+              } else if (symmetricalTp2 && c.low <= symmetricalTp2) {
+                bestExitCandle = c;
+                hitLevelLabel = "TP2";
+                foundCrossing = true;
+                if (isExplicitWin) break;
+              } else if (symmetricalTp1 && c.low <= symmetricalTp1) {
+                bestExitCandle = c;
+                hitLevelLabel = "TP1";
+                foundCrossing = true;
+                if (isExplicitWin) break;
+              }
+            }
+
+            // Check for SL breach
+            if (isExplicitLoss) {
               if (isBuy && targetSl && c.low <= targetSl) {
                 bestExitCandle = c;
+                hitLevelLabel = "SL";
+                foundCrossing = true;
                 break;
               } else if (!isBuy && targetSl && c.high >= targetSl) {
                 bestExitCandle = c;
+                hitLevelLabel = "SL";
+                foundCrossing = true;
                 break;
               }
             }
-          }
-
-          // Fallback if no clean crossing candle detected: place exit 2-3 candles after entry
-          if (!bestExitCandle) {
-            const fallbackIndex = Math.min(bestEntryIndex + 3, data.candles.length - 1);
-            bestExitCandle = data.candles[fallbackIndex];
           }
 
           const markers: SeriesMarker<Time>[] = [
@@ -297,23 +307,50 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             },
           ];
 
-          if (bestExitCandle && bestExitCandle.time !== bestEntryCandle.time) {
-            const exitPosition = isWin
-              ? (isBuy ? "aboveBar" : "belowBar")
-              : (isBuy ? "belowBar" : "aboveBar");
+          if (isExplicitWin || (isActive && foundCrossing && hitLevelLabel.startsWith("TP"))) {
+            // Reached TP or has touched TP
+            if (bestExitCandle && bestExitCandle.time !== bestEntryCandle.time) {
+              const exitPosition = isBuy ? "aboveBar" : "belowBar";
+              const pipText = signal.pips !== null && signal.pips !== undefined
+                ? ` (${signal.pips >= 0 ? "+" : ""}${signal.pips}p)`
+                : " (Nådd)";
 
-            const pipText = signal.pips !== null && signal.pips !== undefined
-              ? ` (${signal.pips >= 0 ? "+" : ""}${signal.pips}p)`
-              : "";
-
-            markers.push({
-              time: bestExitCandle.time as Time,
-              position: exitPosition,
-              color: isWin ? "#10b981" : "#f43f5e",
-              shape: isWin ? "circle" : "square",
-              text: isWin ? `🎯 ${hitLevelLabel} HIT${pipText}` : `🛑 SL HIT`,
-              size: 2,
-            });
+              markers.push({
+                time: bestExitCandle.time as Time,
+                position: exitPosition,
+                color: "#10b981",
+                shape: "circle",
+                text: `🎯 ${hitLevelLabel} HIT${pipText}`,
+                size: 2,
+              });
+            }
+          } else if (isExplicitLoss) {
+            // Confirmed SL
+            const exitCandle = bestExitCandle || data.candles[Math.min(bestEntryIndex + 3, data.candles.length - 1)];
+            if (exitCandle && exitCandle.time !== bestEntryCandle.time) {
+              const exitPosition = isBuy ? "belowBar" : "aboveBar";
+              markers.push({
+                time: exitCandle.time as Time,
+                position: exitPosition,
+                color: "#f43f5e",
+                shape: "square",
+                text: `🛑 SL HIT`,
+                size: 2,
+              });
+            }
+          } else if (isActive) {
+            // Still active in market
+            const latestCandle = data.candles[data.candles.length - 1];
+            if (latestCandle && latestCandle.time !== bestEntryCandle.time) {
+              markers.push({
+                time: latestCandle.time as Time,
+                position: isBuy ? "aboveBar" : "belowBar",
+                color: "#38bdf8",
+                shape: "circle",
+                text: `🟢 Aktiv i markedet`,
+                size: 1,
+              });
+            }
           }
 
           createSeriesMarkers(candlestickSeries, markers);
