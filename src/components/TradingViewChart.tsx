@@ -8,7 +8,6 @@ import {
   ColorType,
   CrosshairMode,
   IChartApi,
-  ISeriesApi,
   LineStyle,
   SeriesMarker,
   Time,
@@ -39,11 +38,12 @@ interface TradingViewChartProps {
   height?: number;
 }
 
-export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps) {
+export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dataSource, setDataSource] = useState<string>("");
+  const [tradeDates, setTradeDates] = useState<{ open: string; close: string }>({ open: "", close: "" });
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -78,8 +78,8 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
       rightPriceScale: {
         borderColor: "rgba(255, 255, 255, 0.08)",
         scaleMargins: {
-          top: 0.15,
-          bottom: 0.15,
+          top: 0.18,
+          bottom: 0.18,
         },
       },
       timeScale: {
@@ -104,7 +104,6 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
     const isBuy = signal.type?.toUpperCase().includes("BUY") || signal.type?.toUpperCase().includes("LONG");
     const isWin = signal.status?.includes("TP") || (signal.pips !== null && signal.pips !== undefined && signal.pips > 0);
     
-    // Baseline defaults if fields are missing
     const defaultEntry = signal.symbol?.includes("BTC") ? 64000 : signal.symbol?.includes("XAU") ? 2450 : 1.285;
     const entryPrice = signal.entry || defaultEntry;
     const targetTp = signal.tp2 || signal.tp1 || (isBuy ? entryPrice * 1.015 : entryPrice * 0.985);
@@ -137,7 +136,14 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
           );
           setDataSource(data.source || "");
 
-          // 4. Add Entry, TP and SL Price Lines
+          if (data.candles[0] && data.candles[data.candles.length - 1]) {
+            setTradeDates({
+              open: formatUnixTime(data.openTimeSec || data.candles[0].time),
+              close: formatUnixTime(data.closeTimeSec || data.candles[data.candles.length - 1].time),
+            });
+          }
+
+          // 4. Add Entry, TP and SL Price Lines with precise styling
           if (entryPrice) {
             candlestickSeries.createPriceLine({
               price: entryPrice,
@@ -145,7 +151,7 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
               lineWidth: 2,
               lineStyle: LineStyle.Dashed,
               axisLabelVisible: true,
-              title: `ENTRY (${entryPrice})`,
+              title: `ENTRY: ${entryPrice}`,
             });
           }
 
@@ -156,7 +162,7 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
               lineWidth: 1,
               lineStyle: LineStyle.Dotted,
               axisLabelVisible: true,
-              title: `TP1 (${signal.tp1})`,
+              title: `TP1: ${signal.tp1}`,
             });
           }
 
@@ -167,7 +173,7 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
               lineWidth: 2,
               lineStyle: LineStyle.Solid,
               axisLabelVisible: true,
-              title: `TP2 (${signal.tp2})`,
+              title: `TP2: ${signal.tp2}`,
             });
           }
 
@@ -178,37 +184,66 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
               lineWidth: 2,
               lineStyle: LineStyle.Dashed,
               axisLabelVisible: true,
-              title: `SL (${targetSl})`,
+              title: `SL: ${targetSl}`,
             });
           }
 
-          // 5. Add Interactive Markers on the Chart (v5 API)
-          const markers: SeriesMarker<Time>[] = [];
-          if (data.candles.length >= 8) {
-            const entryCandle = data.candles[Math.min(8, data.candles.length - 1)];
-            markers.push({
-              time: entryCandle.time as Time,
+          // 5. Add Interactive Markers by matching closest real timestamps
+          const targetOpenSec = data.openTimeSec || (data.candles[Math.min(8, data.candles.length - 1)].time);
+          const targetCloseSec = data.closeTimeSec || (data.candles[data.candles.length - 1].time);
+
+          let bestEntryCandle = data.candles[0];
+          let minEntryDiff = Infinity;
+          let bestExitCandle = data.candles[data.candles.length - 1];
+          let minExitDiff = Infinity;
+
+          for (const c of data.candles) {
+            const entryDiff = Math.abs(c.time - targetOpenSec);
+            if (entryDiff < minEntryDiff) {
+              minEntryDiff = entryDiff;
+              bestEntryCandle = c;
+            }
+            const exitDiff = Math.abs(c.time - targetCloseSec);
+            if (exitDiff < minExitDiff) {
+              minExitDiff = exitDiff;
+              bestExitCandle = c;
+            }
+          }
+
+          const markers: SeriesMarker<Time>[] = [
+            {
+              time: bestEntryCandle.time as Time,
               position: isBuy ? "belowBar" : "aboveBar",
               color: "#38bdf8",
               shape: isBuy ? "arrowUp" : "arrowDown",
               text: `⚡ Signal ${signal.type || "BUY"}`,
               size: 2,
-            });
+            },
+          ];
 
-            const exitIndex = Math.min(data.candles.length - 3, Math.max(10, data.candles.length - 4));
-            const exitCandle = data.candles[exitIndex];
+          // Ensure exit marker is distinct from entry
+          if (bestExitCandle.time !== bestEntryCandle.time) {
             markers.push({
-              time: exitCandle.time as Time,
+              time: bestExitCandle.time as Time,
               position: isBuy ? "aboveBar" : "belowBar",
               color: isWin ? "#10b981" : "#f43f5e",
               shape: isWin ? "circle" : "square",
               text: isWin ? `🎯 TP${signal.tp_level || 2} HIT` : `🛑 SL HIT`,
               size: 2,
             });
-
-            createSeriesMarkers(candlestickSeries, markers);
+          } else if (data.candles.length > 2) {
+            const lastCandle = data.candles[data.candles.length - 2];
+            markers.push({
+              time: lastCandle.time as Time,
+              position: isBuy ? "aboveBar" : "belowBar",
+              color: isWin ? "#10b981" : "#f43f5e",
+              shape: isWin ? "circle" : "square",
+              text: isWin ? `🎯 TP${signal.tp_level || 2} HIT` : `🛑 SL HIT`,
+              size: 2,
+            });
           }
 
+          createSeriesMarkers(candlestickSeries, markers);
           chart.timeScale().fitContent();
         }
       })
@@ -291,7 +326,7 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
         {isLoading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#060A12]/80 backdrop-blur-sm">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-            <p className="mt-3 font-mono text-xs text-cyan-200">Laster TradingView chart...</p>
+            <p className="mt-3 font-mono text-xs text-cyan-200">Laster historiske lysestaker...</p>
           </div>
         )}
         <div ref={chartContainerRef} className="w-full h-full" />
@@ -316,4 +351,15 @@ export function TradingViewChart({ signal, height = 420 }: TradingViewChartProps
       </div>
     </div>
   );
+}
+
+function formatUnixTime(sec: number): string {
+  if (!sec) return "";
+  const d = new Date(sec * 1000);
+  return d.toLocaleDateString("no-NO", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
