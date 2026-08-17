@@ -280,8 +280,10 @@ function mergeSignalRows(existing: SignalRow, incoming: SignalRow): SignalRow {
 }
 
 function enrichSignalMetrics(row: SignalRow) {
-  const status = row.status?.toUpperCase() || "";
   const maxTpLevel = clampTpLevel(row.tp_level);
+  const rawStatus = row.status?.toUpperCase() || "";
+  const reportedStatus = rawStatus.includes("SL") && maxTpLevel > 0 ? "TP_HIT" : row.status;
+  const status = reportedStatus?.toUpperCase() || "";
   const entry = toFiniteNumber(row.entry);
   const stopLoss = toFiniteNumber(row.sl);
   const targetPrice = getTargetPrice(row, maxTpLevel);
@@ -333,16 +335,19 @@ function enrichSignalMetrics(row: SignalRow) {
         : existingProfit ?? derivedProfit;
 
   const pips =
-    existingPips !== null && !(isTpHit && existingPips === 0 && derivedRewardPips !== null)
-      ? existingPips
-      : isTpHit
-        ? derivedRewardPips
-        : isSlHit && derivedRiskPips !== null
-          ? -derivedRiskPips
-          : existingPips;
+    isTpHit && derivedRewardPips !== null
+      ? existingPips !== null && existingPips > 0
+        ? existingPips
+        : derivedRewardPips
+      : isSlHit && derivedRiskPips !== null
+        ? existingPips !== null && existingPips < 0
+          ? existingPips
+          : -derivedRiskPips
+        : existingPips;
 
   return {
     ...row,
+    status: reportedStatus,
     pips,
     tp_level: maxTpLevel,
     risk_pips: existingRisk ?? derivedRiskPips,

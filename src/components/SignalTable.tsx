@@ -181,7 +181,7 @@ function Direction({ type }: { type: string }) {
 }
 
 function Badge({ signal }: { signal: Signal }) {
-  const status = signal.status;
+  const status = getReportStatus(signal);
   const maxTpLevel = getMaxTpLevel(signal);
   const statusLabel =
     status === "TP_HIT" && maxTpLevel > 0
@@ -197,16 +197,9 @@ function Badge({ signal }: { signal: Signal }) {
           : "border-cyan-400/20 bg-cyan-400/10 text-cyan-300";
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className={cn("w-fit rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-[.08em]", color)}>
-        {statusLabel}
-      </span>
-      {status === "SL_HIT" && maxTpLevel > 0 ? (
-        <span className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[.08em] text-emerald-300">
-          Max TP{maxTpLevel}
-        </span>
-      ) : null}
-    </div>
+    <span className={cn("w-fit rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-[.08em]", color)}>
+      {statusLabel}
+    </span>
   );
 }
 
@@ -230,57 +223,45 @@ function TPIndicators({ level }: { level: number }) {
 function RRCell({ signal }: { signal: Signal }) {
   const rr = toFiniteNumber(signal.rr_ratio);
   const maxR = toFiniteNumber(signal.max_rr_ratio);
-  const maxTpLevel = getMaxTpLevel(signal);
-  const primaryR = rr ?? (signal.status === "TP_HIT" ? maxR : null);
-  const showMax = signal.status === "SL_HIT" && maxTpLevel > 0 && maxR !== null;
+  const reportStatus = getReportStatus(signal);
+  const primaryR = reportStatus === "TP_HIT" ? maxR ?? (rr !== null && rr > 0 ? rr : null) : rr;
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <span className={cn("font-black", primaryR !== null && primaryR < 0 ? "text-red-300" : "text-[#EEF2F8]")}>
-        {primaryR !== null ? `${primaryR.toFixed(2)}R` : "-"}
-      </span>
-      {showMax ? (
-        <span className="text-[10px] font-black uppercase tracking-[.08em] text-emerald-300">
-          Max {maxR.toFixed(2)}R
-        </span>
-      ) : null}
-    </div>
+    <span className={cn("font-black", primaryR !== null && primaryR < 0 ? "text-red-300" : "text-[#EEF2F8]")}>
+      {primaryR !== null ? `${primaryR.toFixed(2)}R` : "-"}
+    </span>
   );
 }
 
 function ResultCell({ signal }: { signal: Signal }) {
   const profit = toFiniteNumber(signal.profit);
   const maxProfit = toFiniteNumber(signal.max_profit);
-  const maxTpLevel = getMaxTpLevel(signal);
-  const primaryProfit = profit ?? (signal.status === "TP_HIT" ? maxProfit : null);
-  const showMax = signal.status === "SL_HIT" && maxTpLevel > 0 && maxProfit !== null;
+  const reportStatus = getReportStatus(signal);
+  const primaryProfit = reportStatus === "TP_HIT" ? maxProfit ?? (profit !== null && profit > 0 ? profit : null) : profit;
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <span
-        className={cn(
-          "font-black",
-          primaryProfit !== null && primaryProfit > 0
-            ? "text-emerald-300"
-            : primaryProfit !== null && primaryProfit < 0
-              ? "text-red-300"
-              : "text-[#8B9EC7]"
-        )}
-      >
-        {primaryProfit !== null ? formatCurrency(primaryProfit) : "-"}
-      </span>
-      {showMax ? (
-        <span className="text-[10px] font-black uppercase tracking-[.08em] text-emerald-300">
-          Max {formatCurrency(maxProfit)}
-        </span>
-      ) : null}
-    </div>
+    <span
+      className={cn(
+        "font-black",
+        primaryProfit !== null && primaryProfit > 0
+          ? "text-emerald-300"
+          : primaryProfit !== null && primaryProfit < 0
+            ? "text-red-300"
+            : "text-[#8B9EC7]"
+      )}
+    >
+      {primaryProfit !== null ? formatCurrency(primaryProfit) : "-"}
+    </span>
   );
 }
 
 function getMaxTpLevel(signal: Signal) {
   const rawLevel = signal.max_tp_level ?? signal.tp_level ?? 0;
   return Math.min(4, Math.max(0, Math.round(Number(rawLevel) || 0)));
+}
+
+function getReportStatus(signal: Signal) {
+  return signal.status === "SL_HIT" && getMaxTpLevel(signal) > 0 ? "TP_HIT" : signal.status;
 }
 
 function toFiniteNumber(value?: number | null) {
