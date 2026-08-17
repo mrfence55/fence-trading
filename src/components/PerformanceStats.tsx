@@ -9,6 +9,8 @@ interface PerformanceStatsProps {
 }
 
 const CLOSED_STATUSES = ["TP_HIT", "SL_HIT", "CLOSED", "BREAKEVEN"];
+const TARGET_RESULT_STATUSES = ["TP_HIT", "SL_HIT"];
+const MAIN_CHANNEL = "Fence - Main";
 
 export function PerformanceStats({ signals, activeChannel }: PerformanceStatsProps) {
   const closedSignals = signals.filter((signal) => CLOSED_STATUSES.includes(signal.status));
@@ -21,11 +23,13 @@ export function PerformanceStats({ signals, activeChannel }: PerformanceStatsPro
   const formattedPips = Number.isInteger(totalPips) ? totalPips.toLocaleString("no-NO") : totalPips.toFixed(1);
   const activeTrades = signals.filter((signal) => !CLOSED_STATUSES.includes(signal.status)).length;
 
-  const tp1Count = signals.filter((signal) => getMaxTpLevel(signal) >= 1).length;
-  const tp2Count = signals.filter((signal) => getMaxTpLevel(signal) >= 2).length;
-  const tp3Count = signals.filter((signal) => getMaxTpLevel(signal) >= 3).length;
-  const tp4Count = signals.filter((signal) => getMaxTpLevel(signal) >= 4).length;
-  const totalTP = signals.filter((signal) => getMaxTpLevel(signal) >= 1).length;
+  const targetSignals = signals.filter((signal) => TARGET_RESULT_STATUSES.includes(signal.status));
+  const targetTotal = targetSignals.length;
+  const tp1Count = targetSignals.filter((signal) => getMaxTpLevel(signal) >= 1).length;
+  const tp2Count = targetSignals.filter((signal) => getMaxTpLevel(signal) >= 2).length;
+  const tp3Count = targetSignals.filter((signal) => getMaxTpLevel(signal) >= 3).length;
+  const tp4Count = targetSignals.filter((signal) => getMaxTpLevel(signal) >= 4).length;
+  const showTp4 = activeChannel === MAIN_CHANNEL;
 
   return (
     <div className="space-y-5">
@@ -66,19 +70,19 @@ export function PerformanceStats({ signals, activeChannel }: PerformanceStatsPro
             <h3 className="text-lg font-black tracking-tight text-white">Target-fordeling</h3>
             <p className="text-sm text-[#8B9EC7]">{activeChannel === "All" ? "Alle kanaler" : activeChannel}</p>
           </div>
-          <span className="font-mono text-xs font-bold text-[#8B9EC7]">{totalTP} signaler med TP-treff</span>
+          <span className="font-mono text-xs font-bold text-[#8B9EC7]">{targetTotal} avsluttede trades</span>
         </div>
 
-        {totalTP > 0 ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <TPBar label="TP1+" count={tp1Count} total={totalTP} color="bg-emerald-400" />
-            <TPBar label="TP2+" count={tp2Count} total={totalTP} color="bg-cyan-400" />
-            <TPBar label="TP3+" count={tp3Count} total={totalTP} color="bg-[#D4AF37]" />
-            <TPBar label="TP4+" count={tp4Count} total={totalTP} color="bg-violet-400" />
+        {targetTotal > 0 ? (
+          <div className={`grid grid-cols-1 gap-4 ${showTp4 ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+            <TPBar label="TP1+" count={tp1Count} total={targetTotal} color="bg-emerald-400" />
+            <TPBar label="TP2+" count={tp2Count} total={targetTotal} color="bg-cyan-400" />
+            <TPBar label="TP3+" count={tp3Count} total={targetTotal} color="bg-[#D4AF37]" />
+            {showTp4 ? <TPBar label="TP4+" count={tp4Count} total={targetTotal} color="bg-violet-400" /> : null}
           </div>
         ) : (
           <div className="rounded-xl border border-white/10 bg-[#060A12]/70 p-8 text-center text-sm text-[#8B9EC7]">
-            Ingen TP-treff registrert for valgt filter ennå.
+            Ingen avsluttede trades registrert for valgt filter ennå.
           </div>
         )}
       </div>
