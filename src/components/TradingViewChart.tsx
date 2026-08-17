@@ -66,6 +66,8 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
   const chartRef = useRef<IChartApi | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dataSource, setDataSource] = useState("");
+  const [sourceWindow, setSourceWindow] = useState("");
+  const [outcomeVerified, setOutcomeVerified] = useState<boolean | null>(null);
   const [chartMessage, setChartMessage] = useState("");
 
   const tradeMeta = useMemo(() => {
@@ -172,6 +174,8 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
     setIsLoading(true);
     setChartMessage("");
     setDataSource("");
+    setSourceWindow("");
+    setOutcomeVerified(null);
 
     fetch(`/api/candles?${queryParams.toString()}`)
       .then((res) => {
@@ -196,6 +200,11 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
         );
 
         setDataSource(data.source || "");
+        setSourceWindow(data.sourceWindow || "");
+
+        const verifiedOutcome =
+          typeof data.outcomeVerified === "boolean" ? data.outcomeVerified : null;
+        setOutcomeVerified(verifiedOutcome);
 
         const targetOpenSec = data.openTimeSec || candles[Math.min(8, candles.length - 1)].time;
         const entryIndex = findNearestCandleIndex(candles, targetOpenSec);
@@ -220,6 +229,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
           primaryTarget,
           decimals,
           pips: toFiniteNumber(signal.pips),
+          outcomeVerified: verifiedOutcome,
         });
 
         const markers = buildMarkers({
@@ -233,6 +243,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
           stopLoss,
           takeProfits,
           primaryTarget,
+          outcomeVerified: verifiedOutcome,
         });
 
         createSeriesMarkers(candlestickSeries, markers);
@@ -287,7 +298,7 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
           </span>
           {tradeMeta.reportedTpLevel ? (
             <span className="rounded-full border border-teal-300/25 bg-teal-300/10 px-2.5 py-0.5 text-xs font-black uppercase tracking-wider text-teal-200">
-              TP{tradeMeta.reportedTpLevel} bekreftet
+              TP{tradeMeta.reportedTpLevel} {outcomeVerified === false ? "rapportert" : "bekreftet"}
             </span>
           ) : null}
           <span className="text-xs text-slate-400">
@@ -311,11 +322,17 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
           <div className="flex items-center gap-1.5 text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
             <span className="font-mono text-[10px] uppercase tracking-widest">
-              TradingView {dataSource ? `· ${dataSource}` : ""}
+              {formatSourceLabel(dataSource, sourceWindow)}
             </span>
           </div>
         </div>
       </div>
+
+      {outcomeVerified === false && (tradeMeta.isWin || tradeMeta.isLoss) ? (
+        <div className="border-b border-amber-300/15 bg-amber-300/[0.06] px-4 py-2 text-[11px] font-semibold text-amber-100">
+          Resultatet er rapportert i signal-databasen, men hentede candles krysser ikke nivået i tilgjengelig markedsdata.
+        </div>
+      ) : null}
 
       <div className="relative w-full" style={{ height: `${height}px` }}>
         {isLoading && (
@@ -338,7 +355,8 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             <span className="h-2 w-2 rounded-full bg-[#38bdf8]" /> Entry
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#2dd4bf]" /> {tradeMeta.targetLabel} hit
+            <span className="h-2 w-2 rounded-full bg-[#2dd4bf]" /> {tradeMeta.targetLabel}{" "}
+            {outcomeVerified === false ? "rapportert" : "hit"}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-[#f43f5e]" /> SL
@@ -380,6 +398,7 @@ function drawTradeLines(
     primaryTarget,
     decimals,
     pips,
+    outcomeVerified,
   }: {
     entryPrice: number;
     stopLoss: number;
@@ -387,6 +406,7 @@ function drawTradeLines(
     primaryTarget: TakeProfitLine | null;
     decimals: number;
     pips: number | null;
+    outcomeVerified: boolean | null;
   }
 ) {
   series.createPriceLine({
@@ -411,6 +431,7 @@ function drawTradeLines(
     const isPrimary = primaryTarget?.level === target.level;
     const pipText = isPrimary && pips !== null ? ` (${pips >= 0 ? "+" : ""}${pips}p)` : "";
     const inferredText = target.inferred ? " est." : "";
+    const outcomeText = outcomeVerified === false ? "RAPPORTERT" : "HIT";
 
     series.createPriceLine({
       price: target.price,
@@ -419,7 +440,7 @@ function drawTradeLines(
       lineStyle: isPrimary ? LineStyle.Solid : LineStyle.Dotted,
       axisLabelVisible: isPrimary,
       title: isPrimary
-        ? `TP${target.level} HIT: ${formatPrice(target.price, decimals)}${pipText}`
+        ? `TP${target.level} ${outcomeText}: ${formatPrice(target.price, decimals)}${pipText}`
         : `TP${target.level}${inferredText}`,
     });
   });
@@ -436,6 +457,7 @@ function buildMarkers({
   stopLoss,
   takeProfits,
   primaryTarget,
+  outcomeVerified,
 }: {
   candles: CandlePoint[];
   entryIndex: number;
@@ -447,6 +469,7 @@ function buildMarkers({
   stopLoss: number;
   takeProfits: TakeProfitLine[];
   primaryTarget: TakeProfitLine | null;
+  outcomeVerified: boolean | null;
 }): SeriesMarker<Time>[] {
   const markers: SeriesMarker<Time>[] = [
     {
@@ -464,7 +487,9 @@ function buildMarkers({
     const crossedCandle = target
       ? findFirstCrossing(candles, entryIndex + 1, target.price, isBuy, "target")
       : null;
-    const exitCandle = crossedCandle || findExitByCloseTime(candles, signal.timestamp, entryIndex);
+    const exitCandle = crossedCandle || (!target && outcomeVerified !== false
+      ? findExitByCloseTime(candles, signal.timestamp, entryIndex)
+      : null);
 
     if (exitCandle && exitCandle.time !== entryCandle.time) {
       const pips = toFiniteNumber(signal.pips);
@@ -827,4 +852,18 @@ function formatRatio(value: number) {
     minimumFractionDigits: value % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   });
+}
+
+function formatSourceLabel(source: string, sourceWindow: string) {
+  const normalized = source.toLowerCase();
+  const base =
+    normalized === "twelvedata"
+      ? "Candles · TwelveData"
+      : normalized === "binance"
+        ? "Candles · Binance"
+        : normalized === "reconstructed"
+          ? "Signalnivåer · rekonstruert"
+          : "Candles";
+
+  return sourceWindow === "extended" ? `${base} · utvidet` : base;
 }

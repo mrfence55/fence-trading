@@ -4,6 +4,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || "e319e4cc7cec44ad975841ded108a985";
+const CANDLE_INTERVAL_MS = 15 * 60 * 1000;
+const CONTEXT_WINDOW_MS = 3 * 60 * 60 * 1000;
+const OUTCOME_SEARCH_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 interface Candle {
   time: number; // Unix timestamp in seconds
@@ -12,6 +15,16 @@ interface Candle {
   low: number;
   close: number;
 }
+
+type CandleFetchResult = {
+  candles: Candle[];
+  source: string;
+};
+
+type OutcomeCheck = {
+  verified: boolean;
+  hitTimeSec: number | null;
+};
 
 // Safely parse timestamps in various formats (ISO, space-separated, unix ms)
 function parseTimestamp(val: string | null): number {
@@ -50,6 +63,140 @@ function normalizeTwelveDataSymbol(rawSymbol: string): string {
   return sym;
 }
 
+function findOutcomeCrossing(
+  candles: Candle[],
+  openTimeMs: number,
+  price: number,
+  isBuy: boolean,
+  mode: "target" | "stop"
+): Candle | null {
+  const openTimeSec = Math.floor(openTimeMs / 1000);
+
+  for (const candle of candles) {
+    if (candle.time < openTimeSec) continue;
+
+    const touched =
+      mode === "target"
+        ? isBuy
+          ? candle.high >= price
+          : candle.low <= price
+        : isBuy
+          ? candle.low <= price
+          : candle.high >= price;
+
+    if (touched) return candle;
+  }
+
+  return null;
+}
+
+function getOutcomeCheck(
+  candles: Candle[],
+  openTimeMs: number,
+  isBuy: boolean,
+  isWin: boolean,
+  isLoss: boolean,
+  tp: number,
+  sl: number
+): OutcomeCheck {
+  if (!isWin && !isLoss) return { verified: false, hitTimeSec: null };
+
+  const price = isWin ? tp : sl;
+  if (!Number.isFinite(price)) return { verified: false, hitTimeSec: null };
+
+  const crossing = findOutcomeCrossing(candles, openTimeMs, price, isBuy, isWin ? "target" : "stop");
+  return {
+    verified: Boolean(crossing),
+    hitTimeSec: crossing?.time ?? null,
+  };
+}
+
+async function fetchBinanceCandles(
+  symbol: string,
+  tradeStartMs: number,
+  tradeEndMs: number
+): Promise<CandleFetchResult | null> {
+  if (!(symbol.includes("BTC") || symbol.includes("ETH") || symbol.includes("SOL"))) return null;
+
+  const binancePair = symbol.toUpperCase().replace("/", "").replace("USD", "USDT");
+  const candleLimit = Math.min(
+    1000,
+    Math.max(100, Math.ceil((tradeEndMs - tradeStartMs) / CANDLE_INTERVAL_MS) + 12)
+  );
+  const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${binancePair}&interval=15m&startTime=${tradeStartMs}&endTime=${tradeEndMs}&limit=${candleLimit}`;
+  const bRes = await fetch(binanceUrl, { next: { revalidate: 86400 } });
+
+  if (!bRes.ok) return null;
+
+  const rawData = await bRes.json();
+  if (!Array.isArray(rawData) || rawData.length <= 3) return null;
+
+  return {
+    source: "binance",
+    candles: rawData.map((item: any) => ({
+      time: Math.floor(item[0] / 1000),
+      open: parseFloat(item[1]),
+      high: parseFloat(item[2]),
+      low: parseFloat(item[3]),
+      close: parseFloat(item[4]),
+    })),
+  };
+}
+
+async function fetchTwelveDataCandles(
+  symbol: string,
+  tradeStartMs: number,
+  tradeEndMs: number
+): Promise<CandleFetchResult | null> {
+  if (!TWELVE_DATA_API_KEY) return null;
+
+  const tdSymbol = normalizeTwelveDataSymbol(symbol);
+  const startDateStr = new Date(tradeStartMs).toISOString().slice(0, 19).replace("T", " ");
+  const endDateStr = new Date(tradeEndMs).toISOString().slice(0, 19).replace("T", " ");
+  const tdUrl = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol)}&interval=15min&start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}&timezone=UTC&apikey=${TWELVE_DATA_API_KEY}`;
+  const tdRes = await fetch(tdUrl, { next: { revalidate: 86400 } });
+
+  if (!tdRes.ok) return null;
+
+  const tdData = await tdRes.json();
+  if (!tdData.values || !Array.isArray(tdData.values) || tdData.values.length <= 3) return null;
+
+  return {
+    source: "twelvedata",
+    candles: tdData.values
+      .map((v: any) => ({
+        time: Math.floor(new Date(v.datetime.includes("Z") ? v.datetime : `${v.datetime}Z`).getTime() / 1000),
+        open: parseFloat(v.open),
+        high: parseFloat(v.high),
+        low: parseFloat(v.low),
+        close: parseFloat(v.close),
+      }))
+      .sort((a: Candle, b: Candle) => a.time - b.time),
+  };
+}
+
+async function fetchMarketCandles(
+  symbol: string,
+  tradeStartMs: number,
+  tradeEndMs: number
+): Promise<CandleFetchResult | null> {
+  try {
+    const binance = await fetchBinanceCandles(symbol, tradeStartMs, tradeEndMs);
+    if (binance) return binance;
+  } catch (e) {
+    console.warn("Binance fetch error:", e);
+  }
+
+  try {
+    const twelveData = await fetchTwelveDataCandles(symbol, tradeStartMs, tradeEndMs);
+    if (twelveData) return twelveData;
+  } catch (e) {
+    console.warn("Twelve Data fetch error:", e);
+  }
+
+  return null;
+}
+
 // Generate realistic candles strictly within the trade's real historical timeframe
 function generateRealisticCandles(
   entry: number,
@@ -59,7 +206,8 @@ function generateRealisticCandles(
   closeTimeMs: number,
   isBuy: boolean,
   isWin: boolean,
-  seed: string
+  seed: string,
+  shouldTouchOutcome = true
 ): Candle[] {
   const candles: Candle[] = [];
   const candleIntervalMs = 15 * 60 * 1000; // 15-minute candles
@@ -92,7 +240,8 @@ function generateRealisticCandles(
     } else if (i <= exitStepIndex) {
       // Moving towards target (TP or SL)
       const tradeProgress = (i - entryStepIndex) / Math.max(1, (exitStepIndex - entryStepIndex));
-      const targetEnd = isWin ? exitPrice : sl;
+      const fallbackBias = isBuy ? stepDiff * 1.2 : -stepDiff * 1.2;
+      const targetEnd = shouldTouchOutcome ? (isWin ? exitPrice : sl) : entry + fallbackBias;
       targetPrice = entry + (targetEnd - entry) * tradeProgress + (random() - 0.5) * (stepDiff * 0.7);
     } else {
       // Post-trade consolidation
@@ -104,7 +253,7 @@ function generateRealisticCandles(
     let high = Number((Math.max(open, close) + random() * stepDiff * 0.8).toFixed(decimals));
     let low = Number((Math.min(open, close) - random() * stepDiff * 0.8).toFixed(decimals));
 
-    if (i === exitStepIndex) {
+    if (shouldTouchOutcome && i === exitStepIndex) {
       if (isWin) {
         high = Number((isBuy ? Math.max(high, exitPrice) : high).toFixed(decimals));
         low = Number((isBuy ? low : Math.min(low, exitPrice)).toFixed(decimals));
@@ -160,6 +309,7 @@ export async function GET(request: Request) {
 
     const isBuy = type.includes("BUY") || type.includes("LONG");
     const isWin = status.includes("TP") || status.includes("WIN");
+    const isLoss = status.includes("SL") || status.includes("LOSS");
 
     // Parse exact historical trade dates
     let parsedOpenTime = parseTimestamp(openTimeStr);
@@ -172,80 +322,82 @@ export async function GET(request: Request) {
       parsedCloseTime = parsedOpenTime + 3 * 3600 * 1000;
     }
 
-    const tradeStartMs = parsedOpenTime - 3 * 3600 * 1000; // 3 hours before
-    const tradeEndMs = parsedCloseTime + 3 * 3600 * 1000;   // 3 hours after
+    const needsOutcomeVerification = isWin || isLoss;
+    const baseTradeStartMs = parsedOpenTime - CONTEXT_WINDOW_MS;
+    const baseTradeEndMs = parsedCloseTime + CONTEXT_WINDOW_MS;
+    const latestAllowedEndMs = Math.min(
+      Date.now(),
+      Math.max(baseTradeEndMs, parsedOpenTime + OUTCOME_SEARCH_WINDOW_MS)
+    );
+    const candleWindows = [
+      { name: "exact", endMs: baseTradeEndMs },
+      { name: "extended", endMs: latestAllowedEndMs },
+    ].filter((window, index, list) => index === 0 || window.endMs > list[0].endMs + CANDLE_INTERVAL_MS);
 
-    // 1. Try fetching exact historical candles from Binance for crypto
-    if (symbol.includes("BTC") || symbol.includes("ETH") || symbol.includes("SOL")) {
-      try {
-        const binancePair = symbol.toUpperCase().replace("/", "").replace("USD", "USDT");
-        const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${binancePair}&interval=15m&startTime=${tradeStartMs}&endTime=${tradeEndMs}&limit=100`;
-        const bRes = await fetch(binanceUrl, { next: { revalidate: 86400 } });
-        if (bRes.ok) {
-          const rawData = await bRes.json();
-          if (Array.isArray(rawData) && rawData.length > 3) {
-            const candles: Candle[] = rawData.map((item: any) => ({
-              time: Math.floor(item[0] / 1000),
-              open: parseFloat(item[1]),
-              high: parseFloat(item[2]),
-              low: parseFloat(item[3]),
-              close: parseFloat(item[4]),
-            }));
-            return NextResponse.json({
-              candles,
-              source: "binance",
-              openTimeSec: Math.floor(parsedOpenTime / 1000),
-              closeTimeSec: Math.floor(parsedCloseTime / 1000),
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("Binance fetch error:", e);
+    let widestMarketResult: (CandleFetchResult & { windowName: string; outcome: OutcomeCheck }) | null = null;
+
+    for (const candleWindow of candleWindows) {
+      const marketResult = await fetchMarketCandles(symbol, baseTradeStartMs, candleWindow.endMs);
+      if (!marketResult) continue;
+
+      const outcome = getOutcomeCheck(
+        marketResult.candles,
+        parsedOpenTime,
+        isBuy,
+        isWin,
+        isLoss,
+        tp,
+        sl
+      );
+      widestMarketResult = { ...marketResult, windowName: candleWindow.name, outcome };
+
+      if (!needsOutcomeVerification || outcome.verified) {
+        return NextResponse.json({
+          candles: marketResult.candles,
+          source: marketResult.source,
+          sourceWindow: candleWindow.name,
+          outcomeVerified: needsOutcomeVerification ? outcome.verified : null,
+          outcomeTimeSec: outcome.hitTimeSec,
+          openTimeSec: Math.floor(parsedOpenTime / 1000),
+          closeTimeSec: outcome.hitTimeSec || Math.floor(parsedCloseTime / 1000),
+        });
       }
     }
 
-    // 2. Try Twelve Data with exact historical start_date and end_date
-    if (TWELVE_DATA_API_KEY) {
-      try {
-        const tdSymbol = normalizeTwelveDataSymbol(symbol);
-        const startDateStr = new Date(tradeStartMs).toISOString().slice(0, 19).replace("T", " ");
-        const endDateStr = new Date(tradeEndMs).toISOString().slice(0, 19).replace("T", " ");
-
-        const tdUrl = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol)}&interval=15min&start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}&timezone=UTC&apikey=${TWELVE_DATA_API_KEY}`;
-        
-        const tdRes = await fetch(tdUrl, { next: { revalidate: 86400 } });
-        if (tdRes.ok) {
-          const tdData = await tdRes.json();
-          if (tdData.values && Array.isArray(tdData.values) && tdData.values.length > 3) {
-            const candles: Candle[] = tdData.values
-              .map((v: any) => ({
-                time: Math.floor(new Date(v.datetime.includes("Z") ? v.datetime : `${v.datetime}Z`).getTime() / 1000),
-                open: parseFloat(v.open),
-                high: parseFloat(v.high),
-                low: parseFloat(v.low),
-                close: parseFloat(v.close),
-              }))
-              .sort((a: Candle, b: Candle) => a.time - b.time);
-
-            return NextResponse.json({
-              candles,
-              source: "twelvedata",
-              openTimeSec: Math.floor(parsedOpenTime / 1000),
-              closeTimeSec: Math.floor(parsedCloseTime / 1000),
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("Twelve Data fetch error:", e);
-      }
+    if (widestMarketResult) {
+      return NextResponse.json({
+        candles: widestMarketResult.candles,
+        source: widestMarketResult.source,
+        sourceWindow: widestMarketResult.windowName,
+        outcomeVerified: false,
+        outcomeTimeSec: null,
+        openTimeSec: Math.floor(parsedOpenTime / 1000),
+        closeTimeSec: Math.floor(parsedCloseTime / 1000),
+      });
     }
 
     // 3. High-fidelity reconstructed fallback using exact trade timestamps
     const seed = `${symbol}:${type}:${status}:${entry}:${tp}:${sl}:${parsedOpenTime}:${parsedCloseTime}`;
-    const candles = generateRealisticCandles(entry, tp, sl, parsedOpenTime, parsedCloseTime, isBuy, isWin, seed);
+    const fallbackCloseTimeMs = needsOutcomeVerification
+      ? Math.max(parsedCloseTime, parsedOpenTime + 8 * CANDLE_INTERVAL_MS)
+      : parsedCloseTime;
+    const candles = generateRealisticCandles(
+      entry,
+      tp,
+      sl,
+      parsedOpenTime,
+      fallbackCloseTimeMs,
+      isBuy,
+      isWin,
+      seed,
+      false
+    );
     return NextResponse.json({
       candles,
       source: "reconstructed",
+      sourceWindow: "synthetic",
+      outcomeVerified: false,
+      outcomeTimeSec: null,
       openTimeSec: Math.floor(parsedOpenTime / 1000),
       closeTimeSec: Math.floor(parsedCloseTime / 1000),
     });
