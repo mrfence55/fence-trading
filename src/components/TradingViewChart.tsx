@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
   CandlestickSeries,
@@ -38,24 +38,75 @@ interface TradingViewChartProps {
   height?: number;
 }
 
+type CandlePoint = {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+};
+
+type TakeProfitLine = {
+  level: number;
+  price: number;
+  inferred: boolean;
+};
+
+type CandleSeriesApi = ReturnType<IChartApi["addSeries"]>;
+
+const TP_COLORS: Record<number, string> = {
+  1: "#86efac",
+  2: "#34d399",
+  3: "#10b981",
+  4: "#2dd4bf",
+};
+
 export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [dataSource, setDataSource] = useState<string>("");
+  const [dataSource, setDataSource] = useState("");
+  const [chartMessage, setChartMessage] = useState("");
+
+  const tradeMeta = useMemo(() => {
+    const isBuy = isLongSignal(signal.type);
+    const isWin = isWinningSignal(signal);
+    const isLoss = isLosingSignal(signal);
+    const reportedTpLevel = getReportedTpLevel(signal);
+    const targetLabel = reportedTpLevel ? `TP${reportedTpLevel}` : isWin ? "TP" : "Target";
+    const resultLabel =
+      toFiniteNumber(signal.pips) !== null
+        ? `${signal.pips! >= 0 ? "+" : ""}${signal.pips} Pips`
+        : isWin
+          ? "TP hit"
+          : isLoss
+            ? "SL hit"
+            : "Aktiv";
+
+    return {
+      isBuy,
+      isWin,
+      isLoss,
+      reportedTpLevel,
+      targetLabel,
+      resultLabel,
+    };
+  }, [signal]);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // 1. Initialize TradingView Chart with balanced margins for symmetric 1:1 view
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
-      height: height,
+      height,
       layout: {
         background: { type: ColorType.Solid, color: "#060A12" },
         textColor: "#94a3b8",
         fontSize: 12,
         fontFamily: "'Inter', sans-serif",
+      },
+      localization: {
+        priceFormatter: (price: number) => formatPrice(price, getPriceDecimals(signal.symbol, price)),
       },
       grid: {
         vertLines: { color: "rgba(255, 255, 255, 0.04)" },
@@ -78,8 +129,8 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
         borderColor: "rgba(255, 255, 255, 0.08)",
         autoScale: true,
         scaleMargins: {
-          top: 0.14,
-          bottom: 0.14,
+          top: 0.18,
+          bottom: 0.18,
         },
       },
       timeScale: {
@@ -91,31 +142,21 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
 
     chartRef.current = chart;
 
-    // 2. Add Candlestick Series (v5 API)
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#10b981",
       downColor: "#f43f5e",
       borderVisible: false,
       wickUpColor: "#10b981",
       wickDownColor: "#f43f5e",
+      priceLineVisible: false,
+      lastValueVisible: false,
     });
 
-    // 3. Compute accurate signal values with symmetric 1:1 RR distance for SL and TP3
-    const isBuy = signal.type?.toUpperCase().includes("BUY") || signal.type?.toUpperCase().includes("LONG");
-    const isWin = signal.status?.includes("TP") || (signal.pips !== null && signal.pips !== undefined && signal.pips > 0);
-    
-    const defaultEntry = signal.symbol?.includes("BTC") ? 64000 : signal.symbol?.includes("XAU") ? 2450 : 1.285;
-    const entryPrice = signal.entry || defaultEntry;
-    const targetSl = signal.sl || (isBuy ? entryPrice * 0.99 : entryPrice * 1.01);
-    
-    // Risk distance between entry and SL
-    const riskDistance = Math.abs(entryPrice - targetSl);
-    const decimals = entryPrice > 500 ? 1 : entryPrice > 10 ? 2 : 4;
-
-    // Symmetrical 1:1 RR TP3 (same absolute distance from entry as SL)
-    const symmetricalTp3 = signal.tp3 || Number((isBuy ? entryPrice + riskDistance : entryPrice - riskDistance).toFixed(decimals));
-    const symmetricalTp2 = signal.tp2 || Number((isBuy ? entryPrice + riskDistance * 0.66 : entryPrice - riskDistance * 0.66).toFixed(decimals));
-    const symmetricalTp1 = signal.tp1 || Number((isBuy ? entryPrice + riskDistance * 0.33 : entryPrice - riskDistance * 0.33).toFixed(decimals));
+    const queryEntry = resolveFallbackEntry(signal);
+    const queryStop = resolveStopLoss(signal, queryEntry, tradeMeta.isBuy);
+    const queryDecimals = getPriceDecimals(signal.symbol, queryEntry);
+    const queryTargets = resolveTakeProfits(signal, queryEntry, queryStop, tradeMeta.isBuy, queryDecimals);
+    const queryExitTarget = resolveExitTarget(queryTargets, signal, queryEntry, queryStop, tradeMeta.isBuy, queryDecimals);
 
     const queryParams = new URLSearchParams({
       symbol: signal.symbol || "XAUUSD",
@@ -123,248 +164,93 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
       openTime: signal.open_time || signal.timestamp || "",
       closeTime: signal.timestamp || "",
       status: signal.status || "TP_HIT",
-      entry: entryPrice.toString(),
-      tp: symmetricalTp3.toString(),
-      sl: targetSl.toString(),
+      entry: queryEntry.toString(),
+      tp: (queryExitTarget?.price || queryEntry).toString(),
+      sl: queryStop.toString(),
     });
 
     setIsLoading(true);
+    setChartMessage("");
+    setDataSource("");
+
     fetch(`/api/candles?${queryParams.toString()}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Candle API returned ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
-        if (data.candles && Array.isArray(data.candles) && data.candles.length > 0) {
-          candlestickSeries.setData(
-            data.candles.map((c: any) => ({
-              time: c.time as Time,
-              open: c.open,
-              high: c.high,
-              low: c.low,
-              close: c.close,
-            }))
-          );
-          setDataSource(data.source || "");
-
-          // 4. Add Entry, TP1, TP2, TP3 (1:1 Target) and SL (1:1 Risk) Price Lines
-          if (entryPrice) {
-            candlestickSeries.createPriceLine({
-              price: entryPrice,
-              color: "#38bdf8",
-              lineWidth: 2,
-              lineStyle: LineStyle.Dashed,
-              axisLabelVisible: true,
-              title: `ENTRY: ${entryPrice}`,
-            });
-          }
-
-          // Stop Loss Line (1:1 Risk)
-          if (targetSl) {
-            candlestickSeries.createPriceLine({
-              price: targetSl,
-              color: "#f43f5e",
-              lineWidth: 2,
-              lineStyle: LineStyle.Dashed,
-              axisLabelVisible: true,
-              title: `SL: ${targetSl} (1:1 Risk)`,
-            });
-          }
-
-          // Symmetrical TP3 Main Target (1:1 RR)
-          if (symmetricalTp3) {
-            candlestickSeries.createPriceLine({
-              price: symmetricalTp3,
-              color: "#10b981",
-              lineWidth: 2,
-              lineStyle: LineStyle.Solid,
-              axisLabelVisible: true,
-              title: `TP3: ${symmetricalTp3} (1:1 RR)`,
-            });
-          }
-
-          // Partial Take Profit Lines (TP1 & TP2)
-          if (symmetricalTp1 && symmetricalTp1 !== symmetricalTp3) {
-            candlestickSeries.createPriceLine({
-              price: symmetricalTp1,
-              color: "#34d399",
-              lineWidth: 1,
-              lineStyle: LineStyle.Dotted,
-              axisLabelVisible: true,
-              title: `TP1: ${symmetricalTp1}`,
-            });
-          }
-
-          if (symmetricalTp2 && symmetricalTp2 !== symmetricalTp3) {
-            candlestickSeries.createPriceLine({
-              price: symmetricalTp2,
-              color: "#059669",
-              lineWidth: 1,
-              lineStyle: LineStyle.Dotted,
-              axisLabelVisible: true,
-              title: `TP2: ${symmetricalTp2}`,
-            });
-          }
-
-          if (signal.tp4) {
-            candlestickSeries.createPriceLine({
-              price: signal.tp4,
-              color: "#047857",
-              lineWidth: 1,
-              lineStyle: LineStyle.Solid,
-              axisLabelVisible: true,
-              title: `TP4: ${signal.tp4}`,
-            });
-          }
-
-          // 5. Intelligent marker placement based on exact price crossings
-          const targetOpenSec = data.openTimeSec || data.candles[Math.min(8, data.candles.length - 1)].time;
-
-          let bestEntryIndex = 0;
-          let minEntryDiff = Infinity;
-
-          for (let i = 0; i < data.candles.length; i++) {
-            const entryDiff = Math.abs(data.candles[i].time - targetOpenSec);
-            if (entryDiff < minEntryDiff) {
-              minEntryDiff = entryDiff;
-              bestEntryIndex = i;
-            }
-          }
-
-          const bestEntryCandle = data.candles[bestEntryIndex];
-
-          const isExplicitWin = signal.status?.includes("TP") || (signal.pips !== null && signal.pips !== undefined && signal.pips > 0);
-          const isExplicitLoss = signal.status?.includes("SL") || (signal.pips !== null && signal.pips !== undefined && signal.pips < 0);
-          const isActive = !isExplicitWin && !isExplicitLoss;
-
-          // Scan forward chronologically from the entry candle
-          let bestExitCandle: any = null;
-          let hitLevelLabel = isExplicitWin ? (signal.tp_level ? `TP${signal.tp_level}` : "TP") : "SL";
-          let foundCrossing = false;
-
-          for (let i = bestEntryIndex + 1; i < data.candles.length; i++) {
-            const c = data.candles[i];
-            
-            // Check for TP touch
-            if (isBuy) {
-              if (symmetricalTp3 && c.high >= symmetricalTp3) {
-                bestExitCandle = c;
-                hitLevelLabel = "TP3";
-                foundCrossing = true;
-                if (isExplicitWin) break;
-              } else if (symmetricalTp2 && c.high >= symmetricalTp2) {
-                bestExitCandle = c;
-                hitLevelLabel = "TP2";
-                foundCrossing = true;
-                if (isExplicitWin) break;
-              } else if (symmetricalTp1 && c.high >= symmetricalTp1) {
-                bestExitCandle = c;
-                hitLevelLabel = "TP1";
-                foundCrossing = true;
-                if (isExplicitWin) break;
-              }
-            } else {
-              // Short direction
-              if (symmetricalTp3 && c.low <= symmetricalTp3) {
-                bestExitCandle = c;
-                hitLevelLabel = "TP3";
-                foundCrossing = true;
-                if (isExplicitWin) break;
-              } else if (symmetricalTp2 && c.low <= symmetricalTp2) {
-                bestExitCandle = c;
-                hitLevelLabel = "TP2";
-                foundCrossing = true;
-                if (isExplicitWin) break;
-              } else if (symmetricalTp1 && c.low <= symmetricalTp1) {
-                bestExitCandle = c;
-                hitLevelLabel = "TP1";
-                foundCrossing = true;
-                if (isExplicitWin) break;
-              }
-            }
-
-            // Check for SL breach
-            if (isExplicitLoss) {
-              if (isBuy && targetSl && c.low <= targetSl) {
-                bestExitCandle = c;
-                hitLevelLabel = "SL";
-                foundCrossing = true;
-                break;
-              } else if (!isBuy && targetSl && c.high >= targetSl) {
-                bestExitCandle = c;
-                hitLevelLabel = "SL";
-                foundCrossing = true;
-                break;
-              }
-            }
-          }
-
-          const markers: SeriesMarker<Time>[] = [
-            {
-              time: bestEntryCandle.time as Time,
-              position: isBuy ? "belowBar" : "aboveBar",
-              color: "#38bdf8",
-              shape: isBuy ? "arrowUp" : "arrowDown",
-              text: `⚡ Signal ${signal.type || "BUY"}`,
-              size: 2,
-            },
-          ];
-
-          if (isExplicitWin || (isActive && foundCrossing && hitLevelLabel.startsWith("TP"))) {
-            // Reached TP or has touched TP
-            if (bestExitCandle && bestExitCandle.time !== bestEntryCandle.time) {
-              const exitPosition = isBuy ? "aboveBar" : "belowBar";
-              const pipText = signal.pips !== null && signal.pips !== undefined
-                ? ` (${signal.pips >= 0 ? "+" : ""}${signal.pips}p)`
-                : " (Nådd)";
-
-              markers.push({
-                time: bestExitCandle.time as Time,
-                position: exitPosition,
-                color: "#10b981",
-                shape: "circle",
-                text: `🎯 ${hitLevelLabel} HIT${pipText}`,
-                size: 2,
-              });
-            }
-          } else if (isExplicitLoss) {
-            // Confirmed SL
-            const exitCandle = bestExitCandle || data.candles[Math.min(bestEntryIndex + 3, data.candles.length - 1)];
-            if (exitCandle && exitCandle.time !== bestEntryCandle.time) {
-              const exitPosition = isBuy ? "belowBar" : "aboveBar";
-              markers.push({
-                time: exitCandle.time as Time,
-                position: exitPosition,
-                color: "#f43f5e",
-                shape: "square",
-                text: `🛑 SL HIT`,
-                size: 2,
-              });
-            }
-          } else if (isActive) {
-            // Still active in market
-            const latestCandle = data.candles[data.candles.length - 1];
-            if (latestCandle && latestCandle.time !== bestEntryCandle.time) {
-              markers.push({
-                time: latestCandle.time as Time,
-                position: isBuy ? "aboveBar" : "belowBar",
-                color: "#38bdf8",
-                shape: "circle",
-                text: `🟢 Aktiv i markedet`,
-                size: 1,
-              });
-            }
-          }
-
-          createSeriesMarkers(candlestickSeries, markers);
-          chart.timeScale().fitContent();
+        const candles = normalizeCandles(data.candles);
+        if (candles.length === 0) {
+          setChartMessage("Fant ikke candle-data for dette signalet.");
+          return;
         }
+
+        candlestickSeries.setData(
+          candles.map((c) => ({
+            time: c.time as Time,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }))
+        );
+
+        setDataSource(data.source || "");
+
+        const targetOpenSec = data.openTimeSec || candles[Math.min(8, candles.length - 1)].time;
+        const entryIndex = findNearestCandleIndex(candles, targetOpenSec);
+        const entryCandle = candles[entryIndex];
+        const entryPrice = toFiniteNumber(signal.entry) ?? entryCandle.close;
+        const stopLoss = resolveStopLoss(signal, entryPrice, tradeMeta.isBuy);
+        const decimals = getPriceDecimals(signal.symbol, entryPrice);
+        const takeProfits = resolveTakeProfits(signal, entryPrice, stopLoss, tradeMeta.isBuy, decimals);
+        const exitTarget = resolveExitTarget(takeProfits, signal, entryPrice, stopLoss, tradeMeta.isBuy, decimals);
+        const primaryTarget = exitTarget || takeProfits[takeProfits.length - 1] || null;
+
+        applyStableAutoScale(candlestickSeries, candles, [
+          entryPrice,
+          stopLoss,
+          ...takeProfits.map((target) => target.price),
+        ]);
+
+        drawTradeLines(candlestickSeries, {
+          entryPrice,
+          stopLoss,
+          takeProfits,
+          primaryTarget,
+          decimals,
+          pips: toFiniteNumber(signal.pips),
+        });
+
+        const markers = buildMarkers({
+          candles,
+          entryIndex,
+          entryCandle,
+          signal,
+          isBuy: tradeMeta.isBuy,
+          isWin: tradeMeta.isWin,
+          isLoss: tradeMeta.isLoss,
+          stopLoss,
+          takeProfits,
+          primaryTarget,
+        });
+
+        createSeriesMarkers(candlestickSeries, markers);
+
+        const exitIndex = findNearestCandleIndex(
+          candles,
+          Number(markers[markers.length - 1]?.time || entryCandle.time)
+        );
+        focusTradeWindow(chart, candles.length, entryIndex, exitIndex);
       })
       .catch((err) => {
         console.error("Failed to load candlesticks:", err);
+        setChartMessage("Kunne ikke laste candle-data akkurat nå.");
       })
       .finally(() => {
         setIsLoading(false);
       });
 
-    // 6. Handle Window Resize
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
@@ -378,58 +264,59 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
 
     return () => {
       resizeObserver.disconnect();
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
+      chart.remove();
+      chartRef.current = null;
     };
-  }, [signal, height]);
+  }, [signal, height, tradeMeta.isBuy, tradeMeta.isLoss, tradeMeta.isWin]);
 
   return (
     <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-[#060A12] shadow-2xl">
-      {/* Chart Top Bar with Live Info */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-white/[0.02] px-4 py-3">
         <div className="flex items-center gap-3">
           <span className="font-mono text-base font-black tracking-wider text-white">
             {signal.symbol}
           </span>
           <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
-              signal.type?.toUpperCase().includes("BUY")
-                ? "bg-emerald-400/10 text-emerald-300 border border-emerald-400/30"
-                : "bg-rose-400/10 text-rose-300 border border-rose-400/30"
+            className={`rounded-full border px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
+              tradeMeta.isBuy
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : "border-rose-400/30 bg-rose-400/10 text-rose-300"
             }`}
           >
-            {signal.type}
+            {tradeMeta.isBuy ? "LONG" : "SHORT"}
           </span>
+          {tradeMeta.reportedTpLevel ? (
+            <span className="rounded-full border border-teal-300/25 bg-teal-300/10 px-2.5 py-0.5 text-xs font-black uppercase tracking-wider text-teal-200">
+              TP{tradeMeta.reportedTpLevel} bekreftet
+            </span>
+          ) : null}
           <span className="text-xs text-slate-400">
             {signal.channel_name?.replace("Fence - ", "") || "Fence VIP"}
           </span>
         </div>
 
         <div className="flex items-center gap-4 text-xs">
-          {signal.pips !== null && signal.pips !== undefined && (
-            <div className="flex items-center gap-1.5 font-mono font-bold">
-              <span className="text-slate-400">Resultat:</span>
-              <span className={signal.pips >= 0 ? "text-emerald-300" : "text-rose-300"}>
-                {signal.pips >= 0 ? `+${signal.pips}` : signal.pips} Pips
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5 font-mono font-bold">
+            <span className="text-slate-400">Resultat:</span>
+            <span className={tradeMeta.isLoss ? "text-rose-300" : "text-emerald-300"}>
+              {tradeMeta.resultLabel}
+            </span>
+          </div>
           <div className="flex items-center gap-1.5 font-mono font-bold">
             <span className="text-slate-400">R:R:</span>
-            <span className="text-cyan-300">{signal.rr_ratio ? `1:${signal.rr_ratio}` : "1:1"} RR</span>
+            <span className="text-cyan-300">
+              {signal.rr_ratio && signal.rr_ratio > 0 ? `1:${formatRatio(signal.rr_ratio)} RR` : "-"}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 text-slate-500">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="font-mono uppercase tracking-widest text-[10px]">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+            <span className="font-mono text-[10px] uppercase tracking-widest">
               TradingView {dataSource ? `· ${dataSource}` : ""}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Chart Canvas Container */}
       <div className="relative w-full" style={{ height: `${height}px` }}>
         {isLoading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#060A12]/80 backdrop-blur-sm">
@@ -437,26 +324,507 @@ export function TradingViewChart({ signal, height = 430 }: TradingViewChartProps
             <p className="mt-3 font-mono text-xs text-cyan-200">Laster historiske lysestaker...</p>
           </div>
         )}
-        <div ref={chartContainerRef} className="w-full h-full" />
+        {chartMessage && !isLoading ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#060A12]/70 px-6 text-center">
+            <p className="max-w-sm text-sm font-semibold text-slate-300">{chartMessage}</p>
+          </div>
+        ) : null}
+        <div ref={chartContainerRef} className="h-full w-full" />
       </div>
 
-      {/* Chart Legend / Controls Info */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 bg-white/[0.01] px-4 py-2 text-[11px] text-slate-400">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-[#38bdf8]" /> Entry
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#10b981]" /> TP3 (1:1 RR Mål)
+            <span className="h-2 w-2 rounded-full bg-[#2dd4bf]" /> {tradeMeta.targetLabel} hit
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#f43f5e]" /> SL (1:1 Risiko)
+            <span className="h-2 w-2 rounded-full bg-[#f43f5e]" /> SL
           </span>
         </div>
-        <div className="text-[10px] text-slate-500">
-          💡 Rull med musen for å zoome · Dra for å panorere
-        </div>
+        <div className="text-[10px] text-slate-500">Zoom med musen · dra for å panorere</div>
       </div>
     </div>
   );
+}
+
+function normalizeCandles(value: unknown): CandlePoint[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((c: any) => ({
+      time: Number(c.time),
+      open: Number(c.open),
+      high: Number(c.high),
+      low: Number(c.low),
+      close: Number(c.close),
+    }))
+    .filter(
+      (c) =>
+        Number.isFinite(c.time) &&
+        Number.isFinite(c.open) &&
+        Number.isFinite(c.high) &&
+        Number.isFinite(c.low) &&
+        Number.isFinite(c.close)
+    );
+}
+
+function drawTradeLines(
+  series: CandleSeriesApi,
+  {
+    entryPrice,
+    stopLoss,
+    takeProfits,
+    primaryTarget,
+    decimals,
+    pips,
+  }: {
+    entryPrice: number;
+    stopLoss: number;
+    takeProfits: TakeProfitLine[];
+    primaryTarget: TakeProfitLine | null;
+    decimals: number;
+    pips: number | null;
+  }
+) {
+  series.createPriceLine({
+    price: entryPrice,
+    color: "#38bdf8",
+    lineWidth: 2,
+    lineStyle: LineStyle.Dashed,
+    axisLabelVisible: true,
+    title: `ENTRY: ${formatPrice(entryPrice, decimals)}`,
+  });
+
+  series.createPriceLine({
+    price: stopLoss,
+    color: "#f43f5e",
+    lineWidth: 2,
+    lineStyle: LineStyle.Dashed,
+    axisLabelVisible: true,
+    title: `SL: ${formatPrice(stopLoss, decimals)}`,
+  });
+
+  takeProfits.forEach((target) => {
+    const isPrimary = primaryTarget?.level === target.level;
+    const pipText = isPrimary && pips !== null ? ` (${pips >= 0 ? "+" : ""}${pips}p)` : "";
+    const inferredText = target.inferred ? " est." : "";
+
+    series.createPriceLine({
+      price: target.price,
+      color: isPrimary ? "#2dd4bf" : TP_COLORS[target.level] || "#10b981",
+      lineWidth: isPrimary ? 2 : 1,
+      lineStyle: isPrimary ? LineStyle.Solid : LineStyle.Dotted,
+      axisLabelVisible: isPrimary,
+      title: isPrimary
+        ? `TP${target.level} HIT: ${formatPrice(target.price, decimals)}${pipText}`
+        : `TP${target.level}${inferredText}`,
+    });
+  });
+}
+
+function buildMarkers({
+  candles,
+  entryIndex,
+  entryCandle,
+  signal,
+  isBuy,
+  isWin,
+  isLoss,
+  stopLoss,
+  takeProfits,
+  primaryTarget,
+}: {
+  candles: CandlePoint[];
+  entryIndex: number;
+  entryCandle: CandlePoint;
+  signal: TradeSignalData;
+  isBuy: boolean;
+  isWin: boolean;
+  isLoss: boolean;
+  stopLoss: number;
+  takeProfits: TakeProfitLine[];
+  primaryTarget: TakeProfitLine | null;
+}): SeriesMarker<Time>[] {
+  const markers: SeriesMarker<Time>[] = [
+    {
+      time: entryCandle.time as Time,
+      position: isBuy ? "belowBar" : "aboveBar",
+      color: "#38bdf8",
+      shape: isBuy ? "arrowUp" : "arrowDown",
+      text: `Signal ${isBuy ? "LONG" : "SHORT"}`,
+      size: 2,
+    },
+  ];
+
+  if (isWin) {
+    const target = primaryTarget || takeProfits[takeProfits.length - 1] || null;
+    const crossedCandle = target
+      ? findFirstCrossing(candles, entryIndex + 1, target.price, isBuy, "target")
+      : null;
+    const exitCandle = crossedCandle || findExitByCloseTime(candles, signal.timestamp, entryIndex);
+
+    if (exitCandle && exitCandle.time !== entryCandle.time) {
+      const pips = toFiniteNumber(signal.pips);
+      markers.push({
+        time: exitCandle.time as Time,
+        position: isBuy ? "aboveBar" : "belowBar",
+        color: "#2dd4bf",
+        shape: "circle",
+        text: `${target ? `TP${target.level}` : "TP"} HIT${pips !== null ? ` (${pips >= 0 ? "+" : ""}${pips}p)` : ""}`,
+        size: 2,
+      });
+    }
+
+    return markers;
+  }
+
+  if (isLoss) {
+    const exitCandle =
+      findFirstCrossing(candles, entryIndex + 1, stopLoss, isBuy, "stop") ||
+      findExitByCloseTime(candles, signal.timestamp, entryIndex);
+
+    if (exitCandle && exitCandle.time !== entryCandle.time) {
+      markers.push({
+        time: exitCandle.time as Time,
+        position: isBuy ? "belowBar" : "aboveBar",
+        color: "#f43f5e",
+        shape: "square",
+        text: "SL HIT",
+        size: 2,
+      });
+    }
+
+    return markers;
+  }
+
+  const latestTarget = findLatestTouchedTarget(candles, entryIndex + 1, takeProfits, isBuy);
+  if (latestTarget) {
+    markers.push({
+      time: latestTarget.candle.time as Time,
+      position: isBuy ? "aboveBar" : "belowBar",
+      color: "#10b981",
+      shape: "circle",
+      text: `TP${latestTarget.target.level} touched`,
+      size: 1,
+    });
+  } else {
+    const latestCandle = candles[candles.length - 1];
+    if (latestCandle && latestCandle.time !== entryCandle.time) {
+      markers.push({
+        time: latestCandle.time as Time,
+        position: isBuy ? "aboveBar" : "belowBar",
+        color: "#38bdf8",
+        shape: "circle",
+        text: "Aktiv",
+        size: 1,
+      });
+    }
+  }
+
+  return markers;
+}
+
+function applyStableAutoScale(series: CandleSeriesApi, candles: CandlePoint[], importantPrices: number[]) {
+  const candlePrices = candles.flatMap((c) => [c.high, c.low]);
+  const allPrices = [...candlePrices, ...importantPrices].filter((price) => Number.isFinite(price));
+
+  if (allPrices.length < 2) return;
+
+  const min = Math.min(...allPrices);
+  const max = Math.max(...allPrices);
+  const padding = Math.max((max - min) * 0.12, Math.abs(max || 1) * 0.002);
+
+  series.applyOptions({
+    autoscaleInfoProvider: () => ({
+      priceRange: {
+        minValue: min - padding,
+        maxValue: max + padding,
+      },
+    }),
+  });
+}
+
+function focusTradeWindow(chart: IChartApi, candleCount: number, entryIndex: number, exitIndex: number) {
+  if (candleCount <= 0) return;
+
+  const from = Math.max(0, Math.min(entryIndex, exitIndex) - 10);
+  const to = Math.min(candleCount - 1, Math.max(entryIndex, exitIndex) + 10);
+
+  if (to - from >= 5) {
+    chart.timeScale().setVisibleLogicalRange({ from, to });
+  } else {
+    chart.timeScale().fitContent();
+  }
+}
+
+function resolveTakeProfits(
+  signal: TradeSignalData,
+  entryPrice: number,
+  stopLoss: number,
+  isBuy: boolean,
+  decimals: number
+): TakeProfitLine[] {
+  const explicitTargets = [
+    [1, toFiniteNumber(signal.tp1)],
+    [2, toFiniteNumber(signal.tp2)],
+    [3, toFiniteNumber(signal.tp3)],
+    [4, toFiniteNumber(signal.tp4)],
+  ] as const;
+
+  const targets: TakeProfitLine[] = explicitTargets
+    .filter(([, price]) => price !== null)
+    .map(([level, price]) => ({ level, price: price!, inferred: false }));
+
+  const reportedLevel = getReportedTpLevel(signal);
+  const alreadyHasReportedLevel = reportedLevel ? targets.some((target) => target.level === reportedLevel) : true;
+
+  if (reportedLevel && !alreadyHasReportedLevel) {
+    const inferredPrice = inferTargetPrice(signal, entryPrice, stopLoss, isBuy, decimals, reportedLevel);
+    if (inferredPrice !== null) {
+      targets.push({ level: reportedLevel, price: inferredPrice, inferred: true });
+    }
+  }
+
+  return targets
+    .filter((target, index, list) => list.findIndex((item) => item.level === target.level) === index)
+    .sort((a, b) => a.level - b.level);
+}
+
+function resolveExitTarget(
+  targets: TakeProfitLine[],
+  signal: TradeSignalData,
+  entryPrice: number,
+  stopLoss: number,
+  isBuy: boolean,
+  decimals: number
+): TakeProfitLine | null {
+  const reportedLevel = getReportedTpLevel(signal);
+  if (reportedLevel) {
+    const explicit = targets.find((target) => target.level === reportedLevel);
+    if (explicit) return explicit;
+
+    const inferredPrice = inferTargetPrice(signal, entryPrice, stopLoss, isBuy, decimals, reportedLevel);
+    if (inferredPrice !== null) return { level: reportedLevel, price: inferredPrice, inferred: true };
+  }
+
+  if (targets.length > 0) return targets[targets.length - 1];
+
+  const fallbackPrice = inferTargetPrice(signal, entryPrice, stopLoss, isBuy, decimals, 1);
+  return fallbackPrice !== null ? { level: 1, price: fallbackPrice, inferred: true } : null;
+}
+
+function inferTargetPrice(
+  signal: TradeSignalData,
+  entryPrice: number,
+  stopLoss: number,
+  isBuy: boolean,
+  decimals: number,
+  targetLevel: number
+) {
+  const riskDistance = Math.abs(entryPrice - stopLoss);
+  const rrRatio = toFiniteNumber(signal.rr_ratio);
+  const pips = toFiniteNumber(signal.pips);
+  let distance: number | null = null;
+
+  if (rrRatio !== null && rrRatio > 0 && riskDistance > 0) {
+    distance = riskDistance * rrRatio;
+  } else if (pips !== null && Math.abs(pips) > 0) {
+    distance = Math.abs(pips) * getPipValue(signal.symbol, entryPrice);
+  } else if (riskDistance > 0) {
+    distance = riskDistance * Math.max(1, targetLevel);
+  }
+
+  if (distance === null || !Number.isFinite(distance)) return null;
+  return roundPrice(isBuy ? entryPrice + distance : entryPrice - distance, decimals);
+}
+
+function resolveStopLoss(signal: TradeSignalData, entryPrice: number, isBuy: boolean) {
+  const explicitStop = toFiniteNumber(signal.sl);
+  if (explicitStop !== null) return explicitStop;
+
+  const rrRatio = toFiniteNumber(signal.rr_ratio);
+  const pips = toFiniteNumber(signal.pips);
+  if (rrRatio !== null && rrRatio > 0 && pips !== null && Math.abs(pips) > 0) {
+    const riskDistance = (Math.abs(pips) * getPipValue(signal.symbol, entryPrice)) / rrRatio;
+    return roundPrice(isBuy ? entryPrice - riskDistance : entryPrice + riskDistance, getPriceDecimals(signal.symbol, entryPrice));
+  }
+
+  return roundPrice(entryPrice * (isBuy ? 0.99 : 1.01), getPriceDecimals(signal.symbol, entryPrice));
+}
+
+function resolveFallbackEntry(signal: TradeSignalData) {
+  const explicitEntry = toFiniteNumber(signal.entry);
+  if (explicitEntry !== null) return explicitEntry;
+
+  const symbol = signal.symbol?.toUpperCase() || "";
+  if (symbol.includes("BTC")) return 64000;
+  if (symbol.includes("ETH")) return 3200;
+  if (symbol.includes("XAU")) return 2450;
+  if (symbol.includes("US30")) return 39000;
+  if (symbol.includes("NAS") || symbol.includes("US100")) return 19000;
+  if (symbol.includes("JPY")) return 155;
+  return 1.285;
+}
+
+function resolveRiskReward(
+  signal: TradeSignalData,
+  entryPrice: number,
+  stopLoss: number,
+  targetPrice: number | null
+) {
+  const explicitRatio = toFiniteNumber(signal.rr_ratio);
+  if (explicitRatio !== null && explicitRatio > 0) return explicitRatio;
+  if (targetPrice === null) return null;
+
+  const risk = Math.abs(entryPrice - stopLoss);
+  if (risk <= 0) return null;
+  return Math.abs(targetPrice - entryPrice) / risk;
+}
+
+function findNearestCandleIndex(candles: CandlePoint[], timeSec: number) {
+  let bestIndex = 0;
+  let bestDiff = Infinity;
+
+  candles.forEach((candle, index) => {
+    const diff = Math.abs(candle.time - timeSec);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestIndex = index;
+    }
+  });
+
+  return bestIndex;
+}
+
+function findFirstCrossing(
+  candles: CandlePoint[],
+  startIndex: number,
+  price: number,
+  isBuy: boolean,
+  mode: "target" | "stop"
+) {
+  for (let i = Math.max(0, startIndex); i < candles.length; i += 1) {
+    const candle = candles[i];
+    const touched =
+      mode === "target"
+        ? isBuy
+          ? candle.high >= price
+          : candle.low <= price
+        : isBuy
+          ? candle.low <= price
+          : candle.high >= price;
+
+    if (touched) return candle;
+  }
+
+  return null;
+}
+
+function findLatestTouchedTarget(
+  candles: CandlePoint[],
+  startIndex: number,
+  targets: TakeProfitLine[],
+  isBuy: boolean
+) {
+  let latest: { candle: CandlePoint; target: TakeProfitLine } | null = null;
+  const orderedTargets = [...targets].sort((a, b) => b.level - a.level);
+
+  for (let i = Math.max(0, startIndex); i < candles.length; i += 1) {
+    for (const target of orderedTargets) {
+      const touched = isBuy ? candles[i].high >= target.price : candles[i].low <= target.price;
+      if (touched) {
+        latest = { candle: candles[i], target };
+        break;
+      }
+    }
+  }
+
+  return latest;
+}
+
+function findExitByCloseTime(candles: CandlePoint[], timestamp: string | undefined, entryIndex: number) {
+  const closeTime = parseChartTime(timestamp);
+  if (!closeTime) return candles[Math.min(candles.length - 1, entryIndex + 4)] || null;
+  return candles[findNearestCandleIndex(candles, Math.floor(closeTime / 1000))] || null;
+}
+
+function parseChartTime(value?: string) {
+  if (!value) return 0;
+  const date = new Date(
+    value.endsWith("Z") || value.includes("+")
+      ? value
+      : value.includes("T")
+        ? `${value}Z`
+        : `${value.replace(" ", "T")}Z`
+  );
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function getReportedTpLevel(signal: TradeSignalData) {
+  const explicitLevel = toFiniteNumber(signal.tp_level);
+  if (explicitLevel !== null && explicitLevel > 0) {
+    return Math.min(4, Math.max(1, Math.round(explicitLevel)));
+  }
+
+  const match = signal.status?.match(/TP\s*([1-4])/i);
+  return match ? Number(match[1]) : null;
+}
+
+function isWinningSignal(signal: TradeSignalData) {
+  const status = signal.status?.toUpperCase() || "";
+  const pips = toFiniteNumber(signal.pips);
+  return status.includes("TP") || (pips !== null && pips > 0);
+}
+
+function isLosingSignal(signal: TradeSignalData) {
+  const status = signal.status?.toUpperCase() || "";
+  const pips = toFiniteNumber(signal.pips);
+  return status.includes("SL") || (pips !== null && pips < 0);
+}
+
+function isLongSignal(type?: string) {
+  const normalized = type?.toUpperCase() || "";
+  return normalized.includes("BUY") || normalized.includes("LONG");
+}
+
+function toFiniteNumber(value?: number | null) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function getPriceDecimals(symbol: string | undefined, price: number) {
+  const normalized = symbol?.toUpperCase() || "";
+  if (normalized.includes("JPY")) return 3;
+  if (normalized.length === 6 && price < 10) return 5;
+  if (normalized.includes("XAU")) return 2;
+  if (price >= 100) return 2;
+  if (price >= 10) return 3;
+  return 5;
+}
+
+function getPipValue(symbol: string | undefined, price: number) {
+  const normalized = symbol?.toUpperCase() || "";
+  if (normalized.includes("BTC") || normalized.includes("ETH") || normalized.includes("XAU") || price >= 100) return 1;
+  if (normalized.includes("JPY")) return 0.01;
+  return 0.0001;
+}
+
+function roundPrice(value: number, decimals: number) {
+  return Number(value.toFixed(decimals));
+}
+
+function formatPrice(value: number, decimals: number) {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: decimals >= 3 ? 3 : 2,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function formatRatio(value: number) {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
 }

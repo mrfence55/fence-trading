@@ -80,6 +80,8 @@ export function SignalTable({ signals, activeChannel, onChannelChange, onSelectS
                 filteredSignals.map((signal) => (
                   <motion.tr
                     key={signal.id}
+                    data-signal-id={signal.id}
+                    data-tp-level={signal.tp_level || 0}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     onClick={() => onSelectSignal?.(signal)}
@@ -128,6 +130,7 @@ export function SignalTable({ signals, activeChannel, onChannelChange, onSelectS
                     <td className="px-4 py-4 text-center">
                       <button
                         type="button"
+                        aria-label={`Se chart for ${signal.symbol} signal ${signal.id}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectSignal?.(signal);

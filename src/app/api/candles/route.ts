@@ -58,10 +58,12 @@ function generateRealisticCandles(
   openTimeMs: number,
   closeTimeMs: number,
   isBuy: boolean,
-  isWin: boolean
+  isWin: boolean,
+  seed: string
 ): Candle[] {
   const candles: Candle[] = [];
   const candleIntervalMs = 15 * 60 * 1000; // 15-minute candles
+  const random = createSeededRandom(hashSeed(seed));
   
   // Start 2.5 hours before trade entry for market context
   const startTimeMs = openTimeMs - 10 * candleIntervalMs;
@@ -83,7 +85,7 @@ function generateRealisticCandles(
     if (i < entryStepIndex) {
       // Approaching entry
       const progress = i / entryStepIndex;
-      targetPrice = currentPrice + (entry - currentPrice) * 0.35 + (Math.random() - 0.48) * stepDiff;
+      targetPrice = currentPrice + (entry - currentPrice) * 0.35 + (random() - 0.48) * stepDiff;
     } else if (i === entryStepIndex) {
       // Exactly at entry
       targetPrice = entry;
@@ -91,16 +93,26 @@ function generateRealisticCandles(
       // Moving towards target (TP or SL)
       const tradeProgress = (i - entryStepIndex) / Math.max(1, (exitStepIndex - entryStepIndex));
       const targetEnd = isWin ? exitPrice : sl;
-      targetPrice = entry + (targetEnd - entry) * tradeProgress + (Math.random() - 0.5) * (stepDiff * 0.7);
+      targetPrice = entry + (targetEnd - entry) * tradeProgress + (random() - 0.5) * (stepDiff * 0.7);
     } else {
       // Post-trade consolidation
-      targetPrice = currentPrice + (Math.random() - 0.5) * stepDiff;
+      targetPrice = currentPrice + (random() - 0.5) * stepDiff;
     }
 
     const decimals = entry > 500 ? 2 : entry > 10 ? 4 : 5;
     const close = Number(targetPrice.toFixed(decimals));
-    const high = Number((Math.max(open, close) + Math.random() * stepDiff * 0.8).toFixed(decimals));
-    const low = Number((Math.min(open, close) - Math.random() * stepDiff * 0.8).toFixed(decimals));
+    let high = Number((Math.max(open, close) + random() * stepDiff * 0.8).toFixed(decimals));
+    let low = Number((Math.min(open, close) - random() * stepDiff * 0.8).toFixed(decimals));
+
+    if (i === exitStepIndex) {
+      if (isWin) {
+        high = Number((isBuy ? Math.max(high, exitPrice) : high).toFixed(decimals));
+        low = Number((isBuy ? low : Math.min(low, exitPrice)).toFixed(decimals));
+      } else {
+        high = Number((isBuy ? high : Math.max(high, sl)).toFixed(decimals));
+        low = Number((isBuy ? Math.min(low, sl) : low).toFixed(decimals));
+      }
+    }
 
     candles.push({
       time,
@@ -114,6 +126,23 @@ function generateRealisticCandles(
   }
 
   return candles;
+}
+
+function hashSeed(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function createSeededRandom(seed: number) {
+  let state = seed || 1;
+  return () => {
+    state = Math.imul(1664525, state) + 1013904223;
+    return (state >>> 0) / 4294967296;
+  };
 }
 
 export async function GET(request: Request) {
@@ -212,7 +241,8 @@ export async function GET(request: Request) {
     }
 
     // 3. High-fidelity reconstructed fallback using exact trade timestamps
-    const candles = generateRealisticCandles(entry, tp, sl, parsedOpenTime, parsedCloseTime, isBuy, isWin);
+    const seed = `${symbol}:${type}:${status}:${entry}:${tp}:${sl}:${parsedOpenTime}:${parsedCloseTime}`;
+    const candles = generateRealisticCandles(entry, tp, sl, parsedOpenTime, parsedCloseTime, isBuy, isWin, seed);
     return NextResponse.json({
       candles,
       source: "reconstructed",

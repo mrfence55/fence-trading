@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, TrendingUp, TrendingDown, Target, ShieldAlert, Clock, Sparkles, ExternalLink } from "lucide-react";
 import { TradingViewChart, TradeSignalData } from "./TradingViewChart";
@@ -16,6 +16,8 @@ const affiliateUrl =
   "https://go.tradenation.com/visit/?bta=36145&brand=tradenation";
 
 export function TradeReplayModal({ signal, isOpen, onClose }: TradeReplayModalProps) {
+  const [chartHeight, setChartHeight] = useState(360);
+
   // Close modal on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -31,10 +33,26 @@ export function TradeReplayModal({ signal, isOpen, onClose }: TradeReplayModalPr
     };
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updateChartHeight = () => {
+      setChartHeight(Math.max(280, Math.min(380, window.innerHeight - 420)));
+    };
+
+    updateChartHeight();
+    window.addEventListener("resize", updateChartHeight);
+
+    return () => {
+      window.removeEventListener("resize", updateChartHeight);
+    };
+  }, [isOpen]);
+
   if (!signal) return null;
 
   const isBuy = signal.type?.toUpperCase().includes("BUY") || signal.type?.toUpperCase().includes("LONG");
   const isWin = signal.status?.includes("TP") || (signal.pips !== null && signal.pips !== undefined && signal.pips > 0);
+  const outcomeLabel = formatOutcome(signal);
 
   return (
     <AnimatePresence>
@@ -112,7 +130,7 @@ export function TradeReplayModal({ signal, isOpen, onClose }: TradeReplayModalPr
                     <ShieldAlert className="h-4 w-4 text-rose-400" />
                   )}
                   <span className={`font-mono text-sm font-black ${isWin ? "text-emerald-300" : "text-rose-300"}`}>
-                    {signal.status.replace("_", " ")}
+                    {outcomeLabel}
                   </span>
                 </div>
               </div>
@@ -134,7 +152,7 @@ export function TradeReplayModal({ signal, isOpen, onClose }: TradeReplayModalPr
 
             {/* Embedded TradingView Lightweight Chart */}
             <div className="flex-1 overflow-hidden">
-              <TradingViewChart signal={signal} height={380} />
+              <TradingViewChart signal={signal} height={chartHeight} />
             </div>
 
             {/* Modal Bottom Call to Action */}
@@ -182,4 +200,10 @@ function formatDate(value?: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatOutcome(signal: TradeSignalData) {
+  if (signal.status?.includes("TP") && signal.tp_level) return `TP${signal.tp_level} HIT`;
+  if (signal.status?.includes("SL")) return "SL HIT";
+  return signal.status.replaceAll("_", " ");
 }
