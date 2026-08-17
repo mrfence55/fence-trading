@@ -9,12 +9,21 @@ export type Signal = {
   symbol: string;
   type: string;
   status: string;
-  pips: number;
-  tp_level: number;
+  entry?: number | null;
+  sl?: number | null;
+  tp1?: number | null;
+  tp2?: number | null;
+  tp3?: number | null;
+  tp4?: number | null;
+  pips?: number | null;
+  tp_level?: number | null;
+  max_tp_level?: number | null;
+  max_rr_ratio?: number | null;
+  max_profit?: number | null;
   timestamp: string;
   channel_name?: string;
-  rr_ratio?: number;
-  profit?: number;
+  rr_ratio?: number | null;
+  profit?: number | null;
   open_time?: string;
 };
 
@@ -77,72 +86,63 @@ export function SignalTable({ signals, activeChannel, onChannelChange, onSelectS
                   </td>
                 </tr>
               ) : (
-                filteredSignals.map((signal) => (
-                  <motion.tr
-                    key={signal.id}
-                    data-signal-id={signal.id}
-                    data-tp-level={signal.tp_level || 0}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    onClick={() => onSelectSignal?.(signal)}
-                    className="cursor-pointer transition-colors hover:bg-cyan-300/[.05]"
-                  >
-                    <td className="px-4 py-4 font-mono text-xs text-[#8B9EC7]">
-                      {formatDate(signal.open_time)}
-                    </td>
-                    <td className="px-4 py-4 font-mono text-xs text-[#8B9EC7]">
-                      {formatDate(signal.timestamp)}
-                    </td>
-                    <td className="px-4 py-4 text-xs font-bold text-[#8B9EC7]">
-                      {signal.channel_name || "Unknown"}
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="font-mono text-base font-black text-white">{signal.symbol}</span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <Direction type={signal.type} />
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col gap-2">
-                        <Badge status={signal.status} />
-                        <TPIndicators level={signal.tp_level || 0} />
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-right font-mono text-[#EEF2F8]">
-                      {signal.rr_ratio ? `${signal.rr_ratio.toFixed(2)}R` : "-"}
-                    </td>
-                    <td
-                      className={cn(
-                        "px-4 py-4 text-right font-mono font-black",
-                        (signal.profit || 0) > 0
-                          ? "text-emerald-300"
-                          : (signal.profit || 0) < 0
-                            ? "text-red-300"
-                            : "text-[#8B9EC7]"
-                      )}
+                filteredSignals.map((signal) => {
+                  const maxTpLevel = getMaxTpLevel(signal);
+
+                  return (
+                    <motion.tr
+                      key={signal.id}
+                      data-signal-id={signal.id}
+                      data-tp-level={maxTpLevel}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      onClick={() => onSelectSignal?.(signal)}
+                      className="cursor-pointer transition-colors hover:bg-cyan-300/[.05]"
                     >
-                      {signal.profit
-                        ? `${signal.profit > 0 ? "+" : ""}$${signal.profit.toLocaleString("no-NO", {
-                            maximumFractionDigits: 0,
-                          })}`
-                        : "-"}
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <button
-                        type="button"
-                        aria-label={`Se chart for ${signal.symbol} signal ${signal.id}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectSignal?.(signal);
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-300 transition hover:border-cyan-400 hover:bg-cyan-400/20"
-                      >
-                        <BarChart2 className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Se chart</span>
-                      </button>
-                    </td>
-                  </motion.tr>
-                ))
+                      <td className="px-4 py-4 font-mono text-xs text-[#8B9EC7]">
+                        {formatDate(signal.open_time)}
+                      </td>
+                      <td className="px-4 py-4 font-mono text-xs text-[#8B9EC7]">
+                        {formatDate(signal.timestamp)}
+                      </td>
+                      <td className="px-4 py-4 text-xs font-bold text-[#8B9EC7]">
+                        {signal.channel_name || "Unknown"}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="font-mono text-base font-black text-white">{signal.symbol}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <Direction type={signal.type} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col gap-2">
+                          <Badge signal={signal} />
+                          <TPIndicators level={maxTpLevel} />
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono text-[#EEF2F8]">
+                        <RRCell signal={signal} />
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono">
+                        <ResultCell signal={signal} />
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <button
+                          type="button"
+                          aria-label={`Se chart for ${signal.symbol} signal ${signal.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectSignal?.(signal);
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-300 transition hover:border-cyan-400 hover:bg-cyan-400/20"
+                        >
+                          <BarChart2 className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Se chart</span>
+                        </button>
+                      </td>
+                    </motion.tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -180,7 +180,13 @@ function Direction({ type }: { type: string }) {
   );
 }
 
-function Badge({ status }: { status: string }) {
+function Badge({ signal }: { signal: Signal }) {
+  const status = signal.status;
+  const maxTpLevel = getMaxTpLevel(signal);
+  const statusLabel =
+    status === "TP_HIT" && maxTpLevel > 0
+      ? `TP${maxTpLevel} HIT`
+      : status.replace("_", " ");
   const color =
     status === "TP_HIT"
       ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
@@ -191,9 +197,16 @@ function Badge({ status }: { status: string }) {
           : "border-cyan-400/20 bg-cyan-400/10 text-cyan-300";
 
   return (
-    <span className={cn("w-fit rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-[.08em]", color)}>
-      {status.replace("_", " ")}
-    </span>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className={cn("w-fit rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-[.08em]", color)}>
+        {statusLabel}
+      </span>
+      {status === "SL_HIT" && maxTpLevel > 0 ? (
+        <span className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[.08em] text-emerald-300">
+          Max TP{maxTpLevel}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -212,4 +225,70 @@ function TPIndicators({ level }: { level: number }) {
       ))}
     </div>
   );
+}
+
+function RRCell({ signal }: { signal: Signal }) {
+  const rr = toFiniteNumber(signal.rr_ratio);
+  const maxR = toFiniteNumber(signal.max_rr_ratio);
+  const maxTpLevel = getMaxTpLevel(signal);
+  const primaryR = rr ?? (signal.status === "TP_HIT" ? maxR : null);
+  const showMax = signal.status === "SL_HIT" && maxTpLevel > 0 && maxR !== null;
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <span className={cn("font-black", primaryR !== null && primaryR < 0 ? "text-red-300" : "text-[#EEF2F8]")}>
+        {primaryR !== null ? `${primaryR.toFixed(2)}R` : "-"}
+      </span>
+      {showMax ? (
+        <span className="text-[10px] font-black uppercase tracking-[.08em] text-emerald-300">
+          Max {maxR.toFixed(2)}R
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ResultCell({ signal }: { signal: Signal }) {
+  const profit = toFiniteNumber(signal.profit);
+  const maxProfit = toFiniteNumber(signal.max_profit);
+  const maxTpLevel = getMaxTpLevel(signal);
+  const primaryProfit = profit ?? (signal.status === "TP_HIT" ? maxProfit : null);
+  const showMax = signal.status === "SL_HIT" && maxTpLevel > 0 && maxProfit !== null;
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <span
+        className={cn(
+          "font-black",
+          primaryProfit !== null && primaryProfit > 0
+            ? "text-emerald-300"
+            : primaryProfit !== null && primaryProfit < 0
+              ? "text-red-300"
+              : "text-[#8B9EC7]"
+        )}
+      >
+        {primaryProfit !== null ? formatCurrency(primaryProfit) : "-"}
+      </span>
+      {showMax ? (
+        <span className="text-[10px] font-black uppercase tracking-[.08em] text-emerald-300">
+          Max {formatCurrency(maxProfit)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function getMaxTpLevel(signal: Signal) {
+  const rawLevel = signal.max_tp_level ?? signal.tp_level ?? 0;
+  return Math.min(4, Math.max(0, Math.round(Number(rawLevel) || 0)));
+}
+
+function toFiniteNumber(value?: number | null) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatCurrency(value: number) {
+  return `${value > 0 ? "+" : ""}$${value.toLocaleString("no-NO", {
+    maximumFractionDigits: 0,
+  })}`;
 }

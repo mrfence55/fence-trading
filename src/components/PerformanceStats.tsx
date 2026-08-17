@@ -21,11 +21,11 @@ export function PerformanceStats({ signals, activeChannel }: PerformanceStatsPro
   const formattedPips = Number.isInteger(totalPips) ? totalPips.toLocaleString("no-NO") : totalPips.toFixed(1);
   const activeTrades = signals.filter((signal) => !CLOSED_STATUSES.includes(signal.status)).length;
 
-  const tp1Count = signals.filter((signal) => signal.tp_level >= 1).length;
-  const tp2Count = signals.filter((signal) => signal.tp_level >= 2).length;
-  const tp3Count = signals.filter((signal) => signal.tp_level >= 3).length;
-  const tp4Count = signals.filter((signal) => signal.tp_level >= 4).length;
-  const totalTP = signals.filter((signal) => signal.tp_level >= 1).length;
+  const tp1Count = signals.filter((signal) => getMaxTpLevel(signal) >= 1).length;
+  const tp2Count = signals.filter((signal) => getMaxTpLevel(signal) >= 2).length;
+  const tp3Count = signals.filter((signal) => getMaxTpLevel(signal) >= 3).length;
+  const tp4Count = signals.filter((signal) => getMaxTpLevel(signal) >= 4).length;
+  const totalTP = signals.filter((signal) => getMaxTpLevel(signal) >= 1).length;
 
   return (
     <div className="space-y-5">
@@ -84,6 +84,11 @@ export function PerformanceStats({ signals, activeChannel }: PerformanceStatsPro
       </div>
     </div>
   );
+}
+
+function getMaxTpLevel(signal: Signal) {
+  const rawLevel = signal.max_tp_level ?? signal.tp_level ?? 0;
+  return Math.min(4, Math.max(0, Math.round(Number(rawLevel) || 0)));
 }
 
 function StatCard({
