@@ -53,6 +53,7 @@ export function TradeReplayModal({ signal, isOpen, onClose }: TradeReplayModalPr
   const isBuy = signal.type?.toUpperCase().includes("BUY") || signal.type?.toUpperCase().includes("LONG");
   const isWin = signal.status?.includes("TP") || (signal.pips !== null && signal.pips !== undefined && signal.pips > 0);
   const outcomeLabel = formatOutcome(signal);
+  const riskRewardLabel = formatRiskReward(signal.rr_ratio);
 
   return (
     <AnimatePresence>
@@ -145,7 +146,7 @@ export function TradeReplayModal({ signal, isOpen, onClose }: TradeReplayModalPr
               <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Risk / Reward</p>
                 <p className="mt-1 font-mono text-base font-black text-amber-300">
-                  {signal.rr_ratio ? `1:${signal.rr_ratio} RR` : "1:1 RR"}
+                  {riskRewardLabel}
                 </p>
               </div>
             </div>
@@ -206,4 +207,16 @@ function formatOutcome(signal: TradeSignalData) {
   if (signal.status?.includes("TP") && signal.tp_level) return `TP${signal.tp_level} HIT`;
   if (signal.status?.includes("SL")) return "SL HIT";
   return signal.status.replaceAll("_", " ");
+}
+
+function formatRiskReward(value?: number | null) {
+  const ratio = typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 1;
+  return `1:${formatRatio(ratio)} RR`;
+}
+
+function formatRatio(value: number) {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
 }
